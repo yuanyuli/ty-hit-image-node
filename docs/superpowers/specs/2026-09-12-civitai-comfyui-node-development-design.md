@@ -127,3 +127,12 @@ cmd /c mklink /J "E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes\ComfyUI-
 ## 11. 验收标准
 
 给定站点、关键词和数量后，节点能够稳定返回对应序号的图片或视频预览图、提示词、来源 URL 和脱敏 JSON。缺失字段、权限限制、网络错误和序号越界都必须明确显示。测试使用 fake server 可重复运行，且节点仓库可以脱离原项目独立安装和运行。
+
+## 12. 图片预览交互
+
+节点提供 ComfyUI 前端扩展，在批次图片预览上支持悬停操作：
+
+- “下载”：通过节点后端安全接口把指定原图保存到 `ComfyUI/output/ty-node/`。
+- “加载”：自动创建一个 `Civitai Image Loader` 节点，并填入该文件的安全相对路径。
+
+`Civitai Image Loader` 只允许读取 `output/ty-node/` 下的文件，不使用绝对路径，不复制到 `input/`。扩展和后端接口必须校验路径归属、文件名和请求来源；下载失败要在前端显示可读错误。

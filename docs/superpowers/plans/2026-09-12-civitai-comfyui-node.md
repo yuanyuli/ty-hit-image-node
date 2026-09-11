@@ -272,6 +272,26 @@ git add README.md scripts tests/test_integration.py
 git commit -m "test: document and verify ComfyUI integration"
 ```
 
+### Task 8: 增加图片悬停操作和专用加载节点
+
+**Files:**
+- Create: `download_api.py`
+- Create: `image_node.py`
+- Create: `web/civitai_inspiration.js`
+- Create: `tests/test_download_api.py`
+- Create: `tests/test_image_node.py`
+
+**Interfaces:**
+- `download_to_output(url, item_id) -> str`：返回相对 `ty-node/` 的安全文件名。
+- `CivitaiImageLoader.load(filename: str) -> tuple[ImageTensor]`。
+- 前端扩展在批次预览图片 hover 时显示“下载”和“加载”按钮；加载按钮创建 `CivitaiImageLoader` 节点并填充 filename。
+
+- [ ] **Step 1: 写输出目录安全和加载节点测试**
+- [ ] **Step 2: 实现仅允许 output/ty-node 的下载与读取**
+- [ ] **Step 3: 写前端扩展测试或静态检查**
+- [ ] **Step 4: 实现悬停按钮、下载请求和自动建节点**
+- [ ] **Step 5: 运行全量测试并提交**
+
 ## 完成前验证
 
 - `python -m pytest -q` 全部通过。
