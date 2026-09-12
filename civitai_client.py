@@ -11,6 +11,10 @@ class QueryParams:
     count: int = 10
     sfw: bool = True
     cursor: str | None = None
+    # Civitai image API currently accepts the following public sort values.
+    # Keep this as a query option instead of sorting locally: cursor pagination
+    # only remains stable when the server owns the ordering.
+    sort: str = "Most Reactions"
 
 class ApiError(RuntimeError):
     def __init__(self, status, message): self.status, self.message = status, message; super().__init__(message)
@@ -43,7 +47,12 @@ class CivitaiClient:
     def search(self, params):
         base=self.BASE.get(params.site)
         if not base: raise ValueError(f"不支持的站点: {params.site}")
-        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":str(not params.sfw).lower()}
+        allowed_sorts = {
+            "Most Reactions", "Most Comments", "Most Downloaded",
+            "Newest", "Oldest",
+        }
+        sort = params.sort if params.sort in allowed_sorts else "Most Reactions"
+        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":sort, "nsfw":str(not params.sfw).lower()}
         if params.media_type in ("image", "video"): q["type"] = params.media_type
         if params.prompt_query: q["query"]=params.prompt_query[:256]
         if params.cursor: q["cursor"] = params.cursor

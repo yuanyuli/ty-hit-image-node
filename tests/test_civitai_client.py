@@ -17,6 +17,24 @@ def test_search_sfw_excludes_nsfw(monkeypatch):
     Fake().search(QueryParams(site="civitai.com", sfw=True))
     assert "nsfw=false" in captured["url"]
 
+def test_search_uses_requested_sort(monkeypatch):
+    captured = {}
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            captured["url"] = url
+            return {"items": [], "metadata": {}}
+    Fake().search(QueryParams(site="civitai.com", sort="Newest"))
+    assert "sort=Newest" in captured["url"]
+
+def test_search_falls_back_for_unknown_sort(monkeypatch):
+    captured = {}
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            captured["url"] = url
+            return {"items": [], "metadata": {}}
+    Fake().search(QueryParams(site="civitai.com", sort="not-a-civitai-sort"))
+    assert "sort=Most+Reactions" in captured["url"]
+
 def test_status_codes_are_readable():
     class Fake(CivitaiClient):
         def _request_json(self, url):

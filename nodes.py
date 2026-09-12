@@ -2,10 +2,59 @@ import json
 import hashlib
 import io, base64
 from pathlib import Path
+from urllib.parse import quote
 from civitai_client import CivitaiClient, QueryParams, ApiError
 from metadata_parser import normalize_item
-from image_loader import load_image, stack_images, read_metadata
+from image_loader import read_metadata
 from cache import Cache
+
+SORT_OPTIONS = ['Most Reactions', 'Most Comments', 'Most Downloaded', 'Newest', 'Oldest']
+MAX_COUNT = 9
+NODE_VERSION = 'v7'
+
+def _embedded_prompt(url):
+    if not isinstance(url, str) or not url.startswith('https://'):
+        return {}
+    try:
+        info = read_metadata(url)
+    except Exception:
+        return {}
+    if not isinstance(info, dict):
+        return {}
+    prompt = next((info.get(k) for k in ('prompt', 'positive_prompt', 'positivePrompt') if isinstance(info.get(k), str) and info.get(k).strip()), '')
+    if not prompt:
+        return {}
+    return {'prompt': prompt.strip(), 'negativePrompt': info.get('negativePrompt') or info.get('negative_prompt') or ''}
+
+def _gallery_item(item, site):
+    url = item.get('url') or item.get('imageUrl') or item.get('thumbnailUrl')
+    meta = item.get('meta') or item.get('metadata') or {}
+    normalized = normalize_item(item)
+    # API responses from third-party mirrors can contain non-string prompt
+    # values. Treat those as missing metadata instead of breaking the gallery.
+    if not isinstance(normalized.prompt, str):
+        normalized.prompt = ''
+    if not isinstance(normalized.negative_prompt, str):
+        normalized.negative_prompt = ''
+    embedded = _embedded_prompt(url) if not normalized.prompt else {}
+    if embedded:
+        normalized.prompt = embedded['prompt']
+        normalized.negative_prompt = embedded['negativePrompt']
+        meta = {**meta, **embedded}
+    item_id = item.get('id')
+    source_url = item.get('source_url') or (f"https://{site}/images/{quote(str(item_id), safe='')}" if item_id is not None else None)
+    try:
+        metadata = json.loads(json.dumps(meta, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):
+        metadata = {}
+    user = item.get('user')
+    author = user.get('username') if isinstance(user, dict) else item.get('username')
+    return {'id': item_id, 'url': url, 'source_url': source_url,
+            'has_prompt': bool(normalized.prompt.strip()), 'prompt': normalized.prompt,
+            'negative_prompt': normalized.negative_prompt, 'classification': normalized.classification,
+            'metadata': metadata, 'author': author,
+            'created_at': item.get('createdAt') or item.get('created_at'),
+            'nsfw': bool(item.get('nsfw', False))}
 
 class CivitaiInspirationLoader:
     OUTPUT_NODE = True
@@ -14,56 +63,98 @@ class CivitaiInspirationLoader:
         return {"required": {
             "site": (['civitai.com','civitai.red'],), "prompt_query": ('STRING', {'default':'','multiline':False}),
             "period": (['Day','Week','Month','AllTime'],),
-            "count": ('INT', {'default':9,'min':1,'max':9}),
-            "sfw": ('BOOLEAN', {'default':True}), "refresh": ('BOOLEAN', {'default':False})}, "optional": {"source": (["static", "civitai"], {'default':'civitai'}), "page": ('INT', {'default':0,'min':0,'max':1000}), "only_with_prompt": ('BOOLEAN', {'default':False})}}
+            "count": ('INT', {'default':9,'min':1,'max':MAX_COUNT}),
+            "sfw": ('BOOLEAN', {'default':True})}, "optional": {
+                "sort": (SORT_OPTIONS, {'default':'Most Reactions'}),
+                "source": (["static", "civitai"], {'default':'civitai', 'hidden': True}),
+                "page": ('INT', {'default':0,'min':0,'max':1000, 'hidden': True}),
+                "refresh": ('BOOLEAN', {'default':False, 'hidden': True}),
+                "only_with_prompt": ('BOOLEAN', {'default':False})}}
 
     RETURN_TYPES = ()
     RETURN_NAMES = ()
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','count','sfw','refresh','source','page','only_with_prompt'))
+        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','count','sfw','sort','refresh','source','page','only_with_prompt'))
     FUNCTION = "load"
     CATEGORY = "Civitai/Inspiration"
 
-    def load(self, site, prompt_query, period, count, sfw=True, refresh=False, source='civitai', page=0, only_with_prompt=False):
-        if source == 'static':
-            from PIL import Image, ImageDraw
-            items=[]
-            for i in range(1 + page*min(count,9), 1 + page*min(count,9)+min(count,9)):
-                im=Image.new('RGB',(256,256),((i*37)%255,(i*71)%255,(i*109)%255)); ImageDraw.Draw(im).text((20,110),f'STATIC {i}',fill='white')
-                buf=io.BytesIO(); im.save(buf,'PNG'); data='data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode()
-                items.append({'id':f'static-{i}','url':data,'meta':{'prompt':f'static test prompt {i}','negativePrompt':'static test negative'}})
-            page_items=items
-        else:
-            page_items=None
-        cache=Cache(Path(__file__).resolve().parent/'.cache')
-        cache_key=hashlib.sha256(json.dumps(['v5',site,prompt_query,period,count,sfw,source,page], ensure_ascii=False).encode()).hexdigest()
+    def load(self, site, prompt_query, period, count, sfw=True, sort='Most Reactions', refresh=False, source='civitai', page=0, only_with_prompt=False):
+        count = min(max(int(count), 1), MAX_COUNT)
+        sort = sort if sort in SORT_OPTIONS else 'Most Reactions'
+        cache = Cache(Path(__file__).resolve().parent/'.cache')
+        page_index = int(page or 0)
+
+        def page_key(index):
+            payload = ['v7', site, (prompt_query or '')[:256], period, count, bool(sfw), sort, source, index]
+            return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+
+        def get_page(index, force=False):
+            cursor = None
+            items, next_cursor = [], None
+            for current in range(index + 1):
+                cached = None if force and current == index else cache.get(page_key(current))
+                if isinstance(cached, dict) and isinstance(cached.get('items'), list):
+                    items, next_cursor = cached['items'], cached.get('next_cursor')
+                elif isinstance(cached, list):
+                    items, next_cursor = cached, None
+                else:
+                    if current and not cursor:
+                        return [], None
+                    try:
+                        result = CivitaiClient().search(QueryParams(site, prompt_query or '', period, 'image', count, sfw, cursor, sort))
+                    except ApiError:
+                        # refresh is best effort: retain a previously cached page
+                        # when Civitai is temporarily unavailable.
+                        stale = cache.get(page_key(current))
+                        if isinstance(stale, dict) and isinstance(stale.get('items'), list):
+                            items, next_cursor = stale['items'], stale.get('next_cursor')
+                            continue
+                        if isinstance(stale, list):
+                            items, next_cursor = stale, None
+                            continue
+                        raise
+                    items, next_cursor = list(result.items), result.next_cursor
+                    cache.put(page_key(current), {'items': items, 'next_cursor': next_cursor})
+                cursor = next_cursor
+            return items, next_cursor
+
         try:
-          if page_items is None:
-            cached=cache.get(cache_key)
-            if cached is not None:
-                invalid=any(isinstance(x, dict) and isinstance(x.get('url'), str) and not x['url'].startswith('http') and not Path(x['url']).exists() for x in cached)
-                if invalid: cache.clear(cache_key); cached=None
-            if cached is not None and not refresh: page_items=cached
+            if source == 'static':
+                from PIL import Image, ImageDraw
+                page_items=[]
+                start = 1 + page_index * count
+                for i in range(start, start + count):
+                    im=Image.new('RGB',(256,256),((i*37)%255,(i*71)%255,(i*109)%255)); ImageDraw.Draw(im).text((20,110),f'STATIC {i}',fill='white')
+                    buf=io.BytesIO(); im.save(buf,'PNG'); data='data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode()
+                    page_items.append({'id':f'static-{i}','url':data,'meta':{'prompt':f'static test prompt {i}','negativePrompt':'static test negative'}})
+                next_cursor = None
             else:
-                try:
-                    client=CivitaiClient(); cursor=None; result=None
-                    for _ in range(int(page or 0)+1):
-                        result=client.search(QueryParams(site, prompt_query, period, 'image', count, sfw, cursor))
-                        cursor=result.next_cursor
-                        if not cursor and _ < int(page or 0): break
-                    page_items=result.items if result else []
-                    cache.put(cache_key, page_items)
-                except ApiError:
-                    if cached is None: raise
-                    page_items=cached
+                page_items, next_cursor = get_page(page_index, bool(refresh))
+                if only_with_prompt:
+                    # Continue through server pages until count prompt-bearing entries are found.
+                    selected=[]; seen=set(); current_page=page_index
+                    while True:
+                        for item in page_items:
+                            entry = _gallery_item(item, site); key = entry.get('id') or entry.get('url')
+                            if entry['has_prompt'] and key not in seen:
+                                selected.append(item); seen.add(key)
+                        if len(selected) >= count or not next_cursor or current_page >= 1000:
+                            page_items, page_index = selected[:count], current_page
+                            break
+                        current_page += 1
+                        page_items, next_cursor = get_page(current_page)
         except ApiError as exc:
             if exc.status == 403:
                 raise RuntimeError(f'Civitai 拒绝访问（403）：{exc.message}。如该站点要求授权，请设置环境变量 CIVITAI_API_KEY 后重启 ComfyUI。') from exc
             raise RuntimeError(f'Civitai 请求失败（{exc.status}）：{exc.message}') from exc
-        gallery=[]
+
+        gallery=[]; seen=set()
         for x in page_items:
-            m=normalize_item(x)
-            if only_with_prompt and not m.prompt: continue
-            gallery.append({"id": x.get("id"), "url": x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl"), "has_prompt": bool(m.prompt), "prompt": m.prompt, "negative_prompt": m.negative_prompt})
-        return {"ui": {"civitai": gallery}}
+            entry = _gallery_item(x, site)
+            if only_with_prompt and not entry['has_prompt']: continue
+            key = entry.get('id') or entry.get('url')
+            if key in seen: continue
+            seen.add(key); gallery.append(entry)
+            if len(gallery) >= count: break
+        return {'ui': {'civitai': {'items': gallery, 'page': page_index, 'count': len(gallery), 'requested_count': count, 'next_cursor': next_cursor, 'has_next': bool(next_cursor), 'sort': sort, 'source': source, 'stale': False}}}
