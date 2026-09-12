@@ -15,13 +15,11 @@ app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
     const w=n.widgets?.find(x=>x.name==="filename"); if(w) w.value=filename; app.graph.add(n);
   });
   node.onExecuted = (output) => {
-    const item=output?.civitai?.[0]; if(!item) return;
+    const items=output?.civitai||[]; if(!items.length) return;
+    const item=items[0];
     node.properties=node.properties||{}; node.properties.source_url=item.url; node.properties.source_id=item.id;
-    const el=document.createElement("div"); el.className="civitai-hover-preview";
-    const img=document.createElement("img"); img.src=item.url; img.style.cssText="max-width:180px;max-height:120px;display:block";
-    const bar=document.createElement("div"); bar.style.cssText="display:none;gap:4px;position:absolute;bottom:2px;left:2px";
-    for(const [label,fn] of [["下载",node.widgets.find(w=>w.name==='下载当前图片')?.callback],["加载",node.widgets.find(w=>w.name==='加载到新节点')?.callback]]) { const b=document.createElement('button'); b.textContent=label; b.onclick=fn||(()=>{}); bar.appendChild(b); }
-    el.onmouseenter=()=>bar.style.display='flex'; el.onmouseleave=()=>bar.style.display='none'; el.append(img,bar);
+    const el=document.createElement("div"); el.style.cssText="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:300px";
+    for(const current of items) { const card=document.createElement('div'); card.style.cssText='position:relative'; const img=document.createElement('img'); img.src=current.url; img.style.cssText='width:96px;height:96px;object-fit:cover'; const bar=document.createElement('div'); bar.style.cssText='display:none;position:absolute;bottom:2px;left:2px;gap:2px'; for(const label of ['下载','加载']) { const b=document.createElement('button'); b.textContent=label; b.onclick=()=>{node.properties.source_url=current.url; node.properties.source_id=current.id; if(label==='下载') node.widgets.find(w=>w.name==='下载当前图片')?.callback(); else node.widgets.find(w=>w.name==='加载到新节点')?.callback();}; bar.appendChild(b);} card.onmouseenter=()=>bar.style.display='flex'; card.onmouseleave=()=>bar.style.display='none'; card.append(img,bar); el.appendChild(card); }
     if(node.addDOMWidget) node.addDOMWidget("civitai_preview","preview",el,{serialize:false});
   };
 }});
