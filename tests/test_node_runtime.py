@@ -9,5 +9,4 @@ def test_node_returns_comfy_ui_result_shape(tmp_path, monkeypatch):
         def search(self, params): return FakePage()
     monkeypatch.setattr(nodes, 'CivitaiClient', FakeClient)
     out=nodes.CivitaiInspirationLoader().load('civitai.com','', 'Day','image',1,1)
-    assert 'result' in out and 'ui' in out
-    assert len(out['result']) == 6
+    assert 'ui' in out and 'result' not in out

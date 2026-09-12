@@ -16,17 +16,17 @@ class CivitaiInspirationLoader:
             "period": (['Day','Week','Month','AllTime'],), "media_type": (['image','video'],),
             "count": ('INT', {'default':10,'min':1,'max':20}), "result_index": ('INT', {'default':1,'min':1,'max':20}),
             "model": ('STRING', {'default':''}), "family": ('STRING', {'default':''}), "base_model": ('STRING', {'default':''}),
-            "lora": ('STRING', {'default':''}), "sfw": ('BOOLEAN', {'default':True}), "refresh": ('BOOLEAN', {'default':False})}, "optional": {"source": (["static", "civitai"], {'default':'static'}), "page": ('INT', {'default':0,'min':0,'max':1000})}}
+            "lora": ('STRING', {'default':''}), "sfw": ('BOOLEAN', {'default':True}), "refresh": ('BOOLEAN', {'default':False})}, "optional": {"source": (["static", "civitai"], {'default':'static'}), "page": ('INT', {'default':0,'min':0,'max':1000}), "only_with_prompt": ('BOOLEAN', {'default':False})}}
 
-    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING", "STRING", "IMAGE")
-    RETURN_NAMES = ("image", "prompt", "negative_prompt", "metadata", "source_url", "batch")
+    RETURN_TYPES = ()
+    RETURN_NAMES = ()
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','media_type','count','result_index','model','family','base_model','lora','sfw','refresh','source','page'))
+        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','media_type','count','result_index','model','family','base_model','lora','sfw','refresh','source','page','only_with_prompt'))
     FUNCTION = "load"
     CATEGORY = "Civitai/Inspiration"
 
-    def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False, source='static', page=0):
+    def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False, source='static', page=0, only_with_prompt=False):
         if source == 'static':
             from PIL import Image, ImageDraw
             items=[]
@@ -98,5 +98,6 @@ class CivitaiInspirationLoader:
         gallery=[]
         for x in page_items:
             m=normalize_item(x)
-            gallery.append({"id": x.get("id"), "url": x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl"), "has_prompt": bool(m.prompt)})
-        return {"ui": {"civitai": gallery}, "result": (image, normalized.prompt, normalized.negative_prompt, meta, url, batch)}
+            if only_with_prompt and not m.prompt: continue
+            gallery.append({"id": x.get("id"), "url": x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl"), "has_prompt": bool(m.prompt), "prompt": m.prompt, "negative_prompt": m.negative_prompt})
+        return {"ui": {"civitai": gallery}}
