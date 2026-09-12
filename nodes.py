@@ -30,6 +30,14 @@ class CivitaiInspirationLoader:
         url=selected.get('url') or selected.get('imageUrl') or selected.get('thumbnailUrl')
         if not url: raise RuntimeError('选中的条目没有可用图片或预览图地址')
         image=load_image(url) if isinstance(url, str) and url.startswith('http') else load_image(url)
-        batch=stack_images([image])
+        batch_images=[image]
+        for item in page.items:
+            if item is selected: continue
+            other=item.get('url') or item.get('imageUrl') or item.get('thumbnailUrl')
+            if not other: continue
+            try: batch_images.append(load_image(other))
+            except Exception: continue
+            if len(batch_images) >= count: break
+        batch=stack_images(batch_images)
         meta=json.dumps({'id':selected.get('id'),'classification':normalized.classification,'prompt':normalized.prompt,'negative_prompt':normalized.negative_prompt}, ensure_ascii=False)
         return {"ui": {"civitai": [{"id": selected.get("id"), "url": url}]}, "result": (image, normalized.prompt, normalized.negative_prompt, meta, url, batch)}
