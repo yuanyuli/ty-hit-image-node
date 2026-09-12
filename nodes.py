@@ -19,6 +19,9 @@ class CivitaiInspirationLoader:
 
     RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING", "STRING", "IMAGE")
     RETURN_NAMES = ("image", "prompt", "negative_prompt", "metadata", "source_url", "batch")
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','media_type','count','result_index','model','family','base_model','lora','sfw','refresh'))
     FUNCTION = "load"
     CATEGORY = "Civitai/Inspiration"
 
@@ -33,7 +36,7 @@ class CivitaiInspirationLoader:
             if cached is not None and not refresh: page_items=cached
             else:
                 try:
-                    page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count, sfw)).items
+                    page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, max(count, 9), sfw)).items
                     cache.put(cache_key, page_items)
                 except ApiError:
                     if cached is None: raise

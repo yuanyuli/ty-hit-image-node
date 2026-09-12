@@ -8,6 +8,7 @@ app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
     if(!r.ok) return alert("下载失败");
     node.properties.downloaded_filename=(await r.json()).filename;
   });
+  node.addWidget("button", "下一页（执行）", null, ()=>{ const w=node.widgets?.find(x=>x.name==='refresh'); if(w){w.value=!w.value; app.queuePrompt();} });
   function render(items) {
     if(!items?.length) return;
     const item=items[0];
@@ -15,7 +16,7 @@ app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
     if(node._civitaiWidget?.element) node._civitaiWidget.element.remove();
     const el=document.createElement("div"); el.style.cssText="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%";
     for(const current of items.slice(0,9)) { const card=document.createElement('div'); card.style.cssText='position:relative;min-width:0'; const img=document.createElement('img'); img.src=current.url; img.style.cssText='width:100%;aspect-ratio:1;object-fit:cover;border-radius:3px'; const bar=document.createElement('div'); bar.style.cssText='display:none;position:absolute;bottom:3px;left:3px;gap:3px'; const b=document.createElement('button'); b.textContent='下载'; b.onclick=async()=>{ const r=await fetch('/civitai-inspiration/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:current.url,id:current.id})}); const d=await r.json().catch(()=>({})); if(!r.ok||d.error) return alert('下载失败：'+(d.error||r.status)); node.properties.downloaded_filename=d.filename; alert('已下载到 output/ty-node'); }; bar.appendChild(b); card.onmouseenter=()=>bar.style.display='flex'; card.onmouseleave=()=>bar.style.display='none'; card.append(img,bar); el.appendChild(card); }
-    if(node.addDOMWidget) node._civitaiWidget=node.addDOMWidget("civitai_preview","preview",el,{serialize:false});
+    if(node.addDOMWidget) { node._civitaiWidget=node.addDOMWidget("civitai_preview","preview",el,{serialize:false}); node._civitaiWidget.computeSize=()=>[node.size[0], Math.min(420, Math.max(120, node.size[0]-20)*1.05)]; }
     node.properties.civitai_gallery=items;
   }
   node.onExecuted = (output) => {
