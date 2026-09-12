@@ -1,6 +1,5 @@
 try:
     from .nodes import CivitaiInspirationLoader
-    from .image_node import CivitaiImageLoader
 except ImportError:
     import importlib.util, pathlib
     _root = pathlib.Path(__file__).parent
@@ -10,10 +9,9 @@ except ImportError:
         spec=importlib.util.spec_from_file_location(f"_civitai_{name}", _root/f"{name}.py")
         mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
     CivitaiInspirationLoader = _load("nodes").CivitaiInspirationLoader
-    CivitaiImageLoader = _load("image_node").CivitaiImageLoader
 
-NODE_CLASS_MAPPINGS = {"CivitaiInspirationLoader": CivitaiInspirationLoader, "CivitaiImageLoader": CivitaiImageLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"CivitaiInspirationLoader": "Civitai 灵感图加载器", "CivitaiImageLoader": "Civitai 图片加载器"}
+NODE_CLASS_MAPPINGS = {"CivitaiInspirationLoader": CivitaiInspirationLoader}
+NODE_DISPLAY_NAME_MAPPINGS = {"CivitaiInspirationLoader": "Civitai 灵感图加载器"}
 
 WEB_DIRECTORY = "web"
 
