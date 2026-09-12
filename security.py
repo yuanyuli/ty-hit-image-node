@@ -13,11 +13,15 @@ def allowed_url(url: str, site: str) -> bool:
 
 def is_civitai_url(url: str) -> bool:
     parsed = urlparse(url)
-    return parsed.scheme == "https" and (parsed.hostname or "").lower() in _HOSTS
+    host=(parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (host in _HOSTS or host.endswith('.civitai.com') or host.endswith('.civitai.red'))
 
 class _NoRedirectHandler(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise ValueError("不允许重定向到其他地址")
+        # 允许 Civitai 官方域名之间的 CDN 跳转；其他目标直接拒绝。
+        if not is_civitai_url(newurl):
+            raise ValueError("不允许重定向到其他地址")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 def safe_urlopen(request: Request, timeout: int = 30):
     return build_opener(_NoRedirectHandler).open(request, timeout=timeout)
