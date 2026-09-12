@@ -27,7 +27,7 @@ class CivitaiInspirationLoader:
 
     def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False):
         cache=Cache(Path(__file__).resolve().parent/'.cache')
-        cache_key=hashlib.sha256(json.dumps(['v2',site,prompt_query,period,media_type,count,model,family,base_model,lora,sfw], ensure_ascii=False).encode()).hexdigest()
+        cache_key=hashlib.sha256(json.dumps(['v3',site,prompt_query,period,media_type,count,model,family,base_model,lora,sfw], ensure_ascii=False).encode()).hexdigest()
         try:
             cached=cache.get(cache_key)
             if cached is not None:
@@ -36,7 +36,7 @@ class CivitaiInspirationLoader:
             if cached is not None and not refresh: page_items=cached
             else:
                 try:
-                    page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, max(count, 9), sfw)).items
+                    page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count, sfw)).items
                     cache.put(cache_key, page_items)
                 except ApiError:
                     if cached is None: raise
