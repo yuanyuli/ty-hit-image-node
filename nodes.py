@@ -20,7 +20,7 @@ class CivitaiInspirationLoader:
 
     def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False):
         try:
-            page=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count))
+            page=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count, sfw))
         except ApiError as exc:
             if exc.status == 403:
                 raise RuntimeError(f'Civitai 拒绝访问（403）：{exc.message}。如该站点要求授权，请设置环境变量 CIVITAI_API_KEY 后重启 ComfyUI。') from exc

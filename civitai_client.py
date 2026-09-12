@@ -9,6 +9,7 @@ class QueryParams:
     period: str = "Day"
     media_type: str = "image"
     count: int = 10
+    sfw: bool = True
 
 class ApiError(RuntimeError):
     def __init__(self, status, message): self.status, self.message = status, message; super().__init__(message)
@@ -22,7 +23,7 @@ class CivitaiClient:
     BASE = {"civitai.com":"https://civitai.com/api/v1/images", "civitai.red":"https://civitai.red/api/v1/images"}
     def _request_json(self, url):
         try:
-            req=urllib.request.Request(url)
+            req=urllib.request.Request(url, headers={"User-Agent":"ty-civitai-gallery/0.1"})
             key=os.getenv('CIVITAI_API_KEY')
             if key: req.add_header('Authorization', f'Bearer {key}')
             with urllib.request.urlopen(req, timeout=15) as r: return json.load(r)
@@ -33,7 +34,8 @@ class CivitaiClient:
     def search(self, params):
         base=self.BASE.get(params.site)
         if not base: raise ValueError(f"不支持的站点: {params.site}")
-        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":"None" if True else ""}
+        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":str(params.sfw).lower()}
+        if params.media_type in ("image", "video"): q["type"] = params.media_type
         if params.prompt_query: q["query"]=params.prompt_query[:256]
         data=self._request_json(base+"?"+urlencode(q)); items=data.get("items", [])[:q["limit"]]
         meta=data.get("metadata") or {}; return SearchPage(items, meta.get("nextCursor"))
