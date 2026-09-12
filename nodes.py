@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 from civitai_client import CivitaiClient, QueryParams, ApiError
 from metadata_parser import normalize_item
-from image_loader import load_image, stack_images
+from image_loader import load_image, stack_images, read_metadata
 from cache import Cache
 
 class CivitaiInspirationLoader:
@@ -50,6 +50,11 @@ class CivitaiInspirationLoader:
         url=selected.get('url') or selected.get('imageUrl') or selected.get('thumbnailUrl')
         if not url: raise RuntimeError('选中的条目没有可用图片或预览图地址')
         image=load_image(url) if isinstance(url, str) and url.startswith('http') else load_image(url)
+        if not normalized.prompt:
+            embedded=read_metadata(url)
+            raw=embedded.get('parameters') or embedded.get('prompt') or ''
+            if raw:
+                normalized.prompt = str(raw)
         batch_images=[image]
         seen={selected.get('id')}
         for item in page_items:

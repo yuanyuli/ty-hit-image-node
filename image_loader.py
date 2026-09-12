@@ -19,6 +19,16 @@ def load_image(path):
     except ImportError:
         return arr[None,...]
 
+def read_metadata(path):
+    """读取 PNG/JPEG 内嵌参数，供节点补全 prompt。"""
+    try:
+        if isinstance(path, str) and path.startswith('https://'):
+            req=Request(path, headers={'User-Agent':'Mozilla/5.0','Referer':'https://civitai.com/'})
+            source=BytesIO(urlopen(req, timeout=30).read())
+        else: source=Path(path)
+        with Image.open(source) as im: return dict(im.info)
+    except Exception: return {}
+
 def stack_images(images):
     images=[x.detach().cpu().numpy() if hasattr(x, 'detach') else x for x in images]
     h,w=images[0].shape[1:3]; out=[]
