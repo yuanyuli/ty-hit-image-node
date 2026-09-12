@@ -11,6 +11,7 @@ from cache import Cache
 SORT_OPTIONS = ['Most Reactions', 'Most Comments', 'Most Downloaded', 'Newest', 'Oldest']
 MAX_COUNT = 9
 NODE_VERSION = 'v7'
+_META_CACHE = {}
 
 def _embedded_prompt(url):
     if not isinstance(url, str) or not url.startswith('https://'):
@@ -36,7 +37,14 @@ def _gallery_item(item, site):
         normalized.prompt = ''
     if not isinstance(normalized.negative_prompt, str):
         normalized.negative_prompt = ''
-    embedded = _embedded_prompt(url) if not normalized.prompt else {}
+    meta_key=(site, item.get('id'))
+    embedded = _META_CACHE.get(meta_key) if not normalized.prompt and item.get('id') else {}
+    if embedded is None:
+        try: embedded = CivitaiClient().page_metadata(site, item.get('id'))
+        except Exception: embedded = {}
+        _META_CACHE[meta_key] = embedded
+    if not embedded:
+        embedded = _embedded_prompt(url) if not normalized.prompt else {}
     if embedded:
         normalized.prompt = embedded['prompt']
         normalized.negative_prompt = embedded['negativePrompt']
@@ -61,8 +69,8 @@ class TyHitImageNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "site": (['civitai.com','civitai.red'],), "prompt_query": ('STRING', {'default':'','multiline':False}),
-            "period": (['Day','Week','Month','AllTime'],),
+            "site": (['civitai.com','civitai.red'], {'default':'civitai.com'}), "prompt_query": ('STRING', {'default':'','multiline':False}),
+            "period": (['Day','Week','Month','AllTime'], {'default':'Day'}),
             "count": ('INT', {'default':9,'min':1,'max':MAX_COUNT}),
             "sfw": ('BOOLEAN', {'default':True})}, "optional": {
                 "sort": (SORT_OPTIONS, {'default':'Most Reactions'}),
