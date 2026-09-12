@@ -84,6 +84,7 @@ class TyHitImageNode:
         sort = sort if sort in SORT_OPTIONS else 'Most Reactions'
         cache = Cache(Path(__file__).resolve().parent/'.cache')
         page_index = int(page or 0)
+        stale_state = {'used': False}
 
         def page_key(index):
             payload = ['v7', site, (prompt_query or '')[:256], period, count, bool(sfw), sort, source, index]
@@ -109,9 +110,11 @@ class TyHitImageNode:
                         stale = cache.get(page_key(current))
                         if isinstance(stale, dict) and isinstance(stale.get('items'), list):
                             items, next_cursor = stale['items'], stale.get('next_cursor')
+                            stale_state['used'] = True
                             continue
                         if isinstance(stale, list):
                             items, next_cursor = stale, None
+                            stale_state['used'] = True
                             continue
                         raise
                     items, next_cursor = list(result.items), result.next_cursor
@@ -157,7 +160,8 @@ class TyHitImageNode:
             if key in seen: continue
             seen.add(key); gallery.append(entry)
             if len(gallery) >= count: break
-        return {'ui': {'civitai': {'items': gallery, 'page': page_index, 'count': len(gallery), 'requested_count': count, 'next_cursor': next_cursor, 'has_next': bool(next_cursor), 'sort': sort, 'source': source, 'stale': False}}}
+        info = {'page': page_index, 'count': len(gallery), 'requested_count': count, 'next_cursor': next_cursor, 'has_next': bool(next_cursor), 'sort': sort, 'source': source, 'stale': stale_state['used']}
+        return {'ui': {'civitai': gallery, 'civitai_info': info}}
 
 # 兼容早期已保存的 workflow。
 CivitaiInspirationLoader = TyHitImageNode

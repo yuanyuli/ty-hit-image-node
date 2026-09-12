@@ -31,6 +31,6 @@ def test_node_uses_cursor_pages_and_prompt_filter(tmp_path, monkeypatch):
     monkeypatch.setattr(nodes, '_embedded_prompt', lambda url: {})
     out = nodes.CivitaiInspirationLoader().load('civitai.com', '', 'Day', 2, source='civitai', only_with_prompt=True)
     payload = out['ui']['civitai']
-    assert [item['id'] for item in payload['items']] == [2, 3]
+        assert [item['id'] for item in payload] == [2, 3]
     assert calls == [None, 'cursor-1']
     assert payload['has_next'] is False
