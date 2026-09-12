@@ -11,7 +11,7 @@ except ImportError:
     CivitaiInspirationLoader = _load("nodes").CivitaiInspirationLoader
 
 NODE_CLASS_MAPPINGS = {"CivitaiInspirationLoader": CivitaiInspirationLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"CivitaiInspirationLoader": "Civitai 灵感图加载器"}
+NODE_DISPLAY_NAME_MAPPINGS = {"CivitaiInspirationLoader": "ty-hit-image-node"}
 
 WEB_DIRECTORY = "web"
 

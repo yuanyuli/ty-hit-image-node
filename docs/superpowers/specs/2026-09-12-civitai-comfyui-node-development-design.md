@@ -18,7 +18,7 @@
 
 ## 4. 节点接口
 
-节点内部类名为 `CivitaiInspirationLoader`，注册名为 `CivitaiInspirationLoader`，显示名为“Civitai 灵感图画廊”。保留类名和注册名是为了兼容已经保存的本地 workflow。
+节点内部类名为 `CivitaiInspirationLoader`，注册名为 `CivitaiInspirationLoader`，显示名为 `ty-hit-image-node`。保留类名和注册名是为了兼容已经保存的本地 workflow。
 
 输入控件按以下顺序排列：
 

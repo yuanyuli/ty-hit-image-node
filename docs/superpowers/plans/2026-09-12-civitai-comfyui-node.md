@@ -263,7 +263,7 @@ README 写明独立仓库、环境变量、安装方式、缓存目录、重启�
 
 Run: `python -m pytest -q`
 
-然后创建 junction，重启 ComfyUI，确认日志加载成功并在节点搜索中看到“Civitai 灵感图加载器”。
+然后创建 junction，重启 ComfyUI，确认日志加载成功并在节点搜索中看到 `ty-hit-image-node`。
 
 - [ ] **Step 5: 提交发布前版本**
 

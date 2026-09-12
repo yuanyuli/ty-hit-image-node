@@ -43,7 +43,7 @@ cmd /c mklink /J "E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes\ComfyUI-
 
 ## 使用
 
-在节点搜索中找到“Civitai 灵感图加载器”，选择 `source=civitai` 后设置站点、关键词、周期、数量和 SFW 选项，执行节点即可显示画廊。`count` 表示请求的结果数量，当前画廊最多显示 9 张。
+在节点搜索中找到 `ty-hit-image-node`，选择 `source=civitai` 后设置站点、关键词、周期、数量和 SFW 选项，执行节点即可显示画廊。`count` 表示请求的结果数量，当前画廊最多显示 9 张。
 
 点击“下一页（执行）”会请求下一页；切换工作流标签不会触发网络请求。勾选 `only_with_prompt` 可只在画廊中显示已检测到提示词的图片。若没有结果，节点会显示空状态。
 
