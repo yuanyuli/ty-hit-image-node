@@ -10,6 +10,7 @@ class QueryParams:
     media_type: str = "image"
     count: int = 10
     sfw: bool = True
+    cursor: str | None = None
 
 class ApiError(RuntimeError):
     def __init__(self, status, message): self.status, self.message = status, message; super().__init__(message)
@@ -45,5 +46,6 @@ class CivitaiClient:
         q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":str(params.sfw).lower()}
         if params.media_type in ("image", "video"): q["type"] = params.media_type
         if params.prompt_query: q["query"]=params.prompt_query[:256]
+        if params.cursor: q["cursor"] = params.cursor
         data=self._request_json(base+"?"+urlencode(q)); items=data.get("items", [])[:q["limit"]]
         meta=data.get("metadata") or {}; return SearchPage(items, meta.get("nextCursor"))
