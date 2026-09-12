@@ -26,15 +26,18 @@ class CivitaiInspirationLoader:
         cache=Cache(Path(__file__).resolve().parent/'.cache')
         cache_key=hashlib.sha256(json.dumps(['v2',site,prompt_query,period,media_type,count,model,family,base_model,lora,sfw], ensure_ascii=False).encode()).hexdigest()
         try:
-            if refresh: cache.clear(cache_key)
             cached=cache.get(cache_key)
             if cached is not None:
                 invalid=any(isinstance(x, dict) and isinstance(x.get('url'), str) and not x['url'].startswith('http') and not Path(x['url']).exists() for x in cached)
                 if invalid: cache.clear(cache_key); cached=None
-            if cached is not None: page_items=cached
+            if cached is not None and not refresh: page_items=cached
             else:
-                page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count, sfw)).items
-                cache.put(cache_key, page_items)
+                try:
+                    page_items=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count, sfw)).items
+                    cache.put(cache_key, page_items)
+                except ApiError:
+                    if cached is None: raise
+                    page_items=cached
         except ApiError as exc:
             if exc.status == 403:
                 raise RuntimeError(f'Civitai 拒绝访问（403）：{exc.message}。如该站点要求授权，请设置环境变量 CIVITAI_API_KEY 后重启 ComfyUI。') from exc
