@@ -56,7 +56,7 @@ def _gallery_item(item, site):
             'created_at': item.get('createdAt') or item.get('created_at'),
             'nsfw': bool(item.get('nsfw', False))}
 
-class CivitaiInspirationLoader:
+class TyHitImageNode:
     OUTPUT_NODE = True
     @classmethod
     def INPUT_TYPES(cls):
@@ -158,3 +158,6 @@ class CivitaiInspirationLoader:
             seen.add(key); gallery.append(entry)
             if len(gallery) >= count: break
         return {'ui': {'civitai': {'items': gallery, 'page': page_index, 'count': len(gallery), 'requested_count': count, 'next_cursor': next_cursor, 'has_next': bool(next_cursor), 'sort': sort, 'source': source, 'stale': False}}}
+
+# 兼容早期已保存的 workflow。
+CivitaiInspirationLoader = TyHitImageNode

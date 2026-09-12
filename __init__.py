@@ -1,5 +1,5 @@
 try:
-    from .nodes import CivitaiInspirationLoader
+    from .nodes import TyHitImageNode, CivitaiInspirationLoader
 except ImportError:
     import importlib.util, pathlib
     _root = pathlib.Path(__file__).parent
@@ -8,10 +8,11 @@ except ImportError:
     def _load(name):
         spec=importlib.util.spec_from_file_location(f"_civitai_{name}", _root/f"{name}.py")
         mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
+    TyHitImageNode = _load("nodes").TyHitImageNode
     CivitaiInspirationLoader = _load("nodes").CivitaiInspirationLoader
 
-NODE_CLASS_MAPPINGS = {"CivitaiInspirationLoader": CivitaiInspirationLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"CivitaiInspirationLoader": "ty-hit-image-node"}
+NODE_CLASS_MAPPINGS = {"TyHitImageNode": TyHitImageNode, "CivitaiInspirationLoader": CivitaiInspirationLoader}
+NODE_DISPLAY_NAME_MAPPINGS = {"TyHitImageNode": "ty-hit-image-node", "CivitaiInspirationLoader": "ty-hit-image-node (兼容)"}
 
 WEB_DIRECTORY = "web"
 
