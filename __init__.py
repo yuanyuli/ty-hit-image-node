@@ -25,8 +25,11 @@ try:
     from server import PromptServer
     @PromptServer.instance.routes.post('/civitai-inspiration/download')
     async def _download(request):
-        data=await request.json()
-        rel=download_to_output(data.get('url'), data.get('id'), folder_paths.get_output_directory())
-        return web.json_response({'filename': rel})
+        try:
+            data=await request.json()
+            rel=download_to_output(data.get('url'), data.get('id'), folder_paths.get_output_directory())
+            return web.json_response({'filename': rel})
+        except Exception as exc:
+            return web.json_response({'error': str(exc)}, status=400)
 except Exception:
     pass
