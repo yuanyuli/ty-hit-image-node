@@ -30,6 +30,13 @@ def download_to_output(url, item_id, output_root, max_bytes=MAX_REMOTE_BYTES):
         with safe_urlopen(req, timeout=30) as src:
             final_url = src.geturl() if hasattr(src, 'geturl') else url
             if not is_civitai_url(final_url): raise ValueError('不允许重定向到其他地址')
+            content_type = ''
+            try:
+                content_type = (src.headers.get('Content-Type') or '').split(';', 1)[0].lower()
+            except Exception:
+                pass
+            if content_type and not content_type.startswith('image/'):
+                raise ValueError('下载地址返回的内容不是图片')
             payload = read_limited(src, max_bytes)
             name=f"{safe_id}-{hashlib.sha256(url.encode()).hexdigest()[:12]}{_extension(src, final_url)}"
             target=root/name; tmp=target.with_suffix('.tmp')
