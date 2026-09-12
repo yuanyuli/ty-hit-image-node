@@ -15,7 +15,7 @@ app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
     const w=n.widgets?.find(x=>x.name==="filename"); if(w) w.value=filename; app.graph.add(n);
   });
   node.onExecuted = (output) => {
-    const items=output?.civitai||[]; if(!items.length) return;
+    const items=output?.civitai || output?.output?.civitai || []; if(!items.length) return;
     const item=items[0];
     node.properties=node.properties||{}; node.properties.source_url=item.url; node.properties.source_id=item.id;
     const el=document.createElement("div"); el.style.cssText="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:300px";
