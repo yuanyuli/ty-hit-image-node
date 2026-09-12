@@ -7,6 +7,7 @@ from image_loader import load_image, stack_images
 from cache import Cache
 
 class CivitaiInspirationLoader:
+    OUTPUT_NODE = True
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
