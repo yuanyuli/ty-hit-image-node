@@ -27,4 +27,4 @@ class CivitaiInspirationLoader:
         image=load_image(url) if isinstance(url, str) and url.startswith('http') else load_image(url)
         batch=stack_images([image])
         meta=json.dumps({'id':selected.get('id'),'classification':normalized.classification,'prompt':normalized.prompt,'negative_prompt':normalized.negative_prompt}, ensure_ascii=False)
-        return (image, normalized.prompt, normalized.negative_prompt, meta, url, batch)
+        return {"ui": {"civitai": [{"id": selected.get("id"), "url": url}]}, "result": (image, normalized.prompt, normalized.negative_prompt, meta, url, batch)}
