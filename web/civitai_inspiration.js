@@ -1,29 +1,61 @@
 import { app } from "../../../scripts/app.js";
-app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
-  if(node.comfyClass !== "CivitaiInspirationLoader") return;
-  node.addWidget("button", "下载当前图片", null, async ()=>{
-    const current=node._civitaiItems?.[0], url=current?.url, id=current?.id;
-    if(!url) return alert("请先执行节点，再下载当前图片");
-    const r=await fetch("/civitai-inspiration/download", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,id})});
-    if(!r.ok) return alert("下载失败");
-    node.properties.downloaded_filename=(await r.json()).filename;
-  });
-  node.addWidget("button", "下一页（执行）", null, ()=>{ const w=node.widgets?.find(x=>x.name==='page'); if(w) w.value=(Number(w.value)||0)+1; const r=node.widgets?.find(x=>x.name==='refresh'); if(r) r.value=!r.value; app.queuePrompt(); });
-  function render(items) {
-    node._civitaiItems=items || [];
-    const el=node._civitaiElement || document.createElement("div");
-    node._civitaiElement=el; el.innerHTML=""; el.style.cssText="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;max-height:calc(100vh - 180px);overflow-y:auto;overflow-x:hidden";
-    for(const current of items.slice(0,9)) { const card=document.createElement('div'); card.style.cssText='position:relative;min-width:0'; const img=document.createElement('img'); img.src=current.url; img.style.cssText='width:100%;aspect-ratio:1;object-fit:cover;border-radius:3px'; const badge=document.createElement('span'); badge.textContent=current.has_prompt?'提示词 ✓':'无提示词'; badge.title='点击复制提示词'; badge.onclick=()=>{ if(current.prompt) navigator.clipboard.writeText(current.prompt).then(()=>alert('提示词已复制')); }; badge.style.cursor='pointer'; badge.style.cssText='position:absolute;top:3px;left:3px;padding:2px 4px;border-radius:3px;background:'+(current.has_prompt?'#16834b':'#777')+';color:white;font-size:10px;cursor:pointer'; const bar=document.createElement('div'); bar.style.cssText='display:none;position:absolute;bottom:3px;left:3px;gap:3px'; const b=document.createElement('button'); b.textContent='下载'; b.onclick=async()=>{ const r=await fetch('/civitai-inspiration/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:current.url,id:current.id})}); const d=await r.json().catch(()=>({})); if(!r.ok||d.error) return alert('下载失败：'+(d.error||r.status)); node.properties.downloaded_filename=d.filename; alert('已下载到 output/ty-node'); }; bar.appendChild(b); card.onmouseenter=()=>bar.style.display='flex'; card.onmouseleave=()=>bar.style.display='none'; card.append(img,badge,bar); el.appendChild(card); }
-    if(node.addDOMWidget && !node._civitaiWidget) { node._civitaiWidget=node.addDOMWidget("civitai_preview","preview",el,{serialize:false}); }
-    if(!items?.length) { el.textContent='没有符合条件的图片'; return; }
-  }
-  const previousExecuted=node.onExecuted;
-  node.onExecuted = (output) => {
-    if(previousExecuted) previousExecuted.call(node, output);
-    const items=output?.civitai || output?.output?.civitai || []; if(items.length) render(items);
-  };
-  const oldDraw=node.onDrawForeground; node.onDrawForeground=function(ctx){ if(oldDraw) oldDraw.apply(this,arguments); };
+
+const NODE_TYPES = new Set(["CivitaiInspirationLoader", "TyHitImageNode", "ty-hit-image-node"]);
+const DOWNLOAD_ENDPOINT = "/civitai-inspiration/download";
+
+const style = document.createElement("style");
+style.textContent = `
+.ty-hit-gallery{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;font-family:system-ui,sans-serif;color:var(--fg-color,#ddd)}
+.ty-hit-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:2px 0}
+.ty-hit-toolbar button,.ty-hit-card button,.ty-hit-dialog button{border:1px solid rgba(255,255,255,.18);border-radius:4px;background:rgba(255,255,255,.08);color:inherit;padding:4px 8px;cursor:pointer;font-size:11px;line-height:1.2}
+.ty-hit-toolbar button:hover,.ty-hit-card button:hover,.ty-hit-dialog button:hover{background:rgba(255,255,255,.18)}
+.ty-hit-toolbar button:disabled,.ty-hit-card button:disabled{opacity:.55;cursor:wait}
+.ty-hit-status{font-size:11px;color:var(--descrip-text,#aaa);min-height:16px;flex:1}
+.ty-hit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;max-height:min(62vh,760px);overflow:auto;padding:1px;box-sizing:border-box}
+.ty-hit-card{position:relative;min-width:0;aspect-ratio:1;background:rgba(0,0,0,.18);border-radius:5px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.ty-hit-card img{display:block;width:100%;height:100%;object-fit:cover;cursor:zoom-in;transition:filter .15s}.ty-hit-card:hover img{filter:brightness(.78)}
+.ty-hit-card .ty-hit-badge{position:absolute;left:4px;top:4px;border:0;border-radius:4px;padding:3px 5px;background:rgba(23,126,76,.9);color:#fff;font-size:10px;cursor:pointer;max-width:calc(100% - 8px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ty-hit-card .ty-hit-badge.empty{background:rgba(90,90,90,.88)}
+.ty-hit-card .ty-hit-actions{position:absolute;right:4px;bottom:4px;display:flex;gap:4px;opacity:0;transition:opacity .15s}.ty-hit-card:hover .ty-hit-actions,.ty-hit-card:focus-within .ty-hit-actions{opacity:1}.ty-hit-card .ty-hit-actions button{background:rgba(15,15,15,.8);padding:4px 6px}
+.ty-hit-empty{padding:12px 6px;text-align:center;font-size:12px;color:var(--descrip-text,#aaa);border:1px dashed rgba(255,255,255,.18);border-radius:5px}
+.ty-hit-dialog-backdrop{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}.ty-hit-dialog{width:min(900px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:10px;background:var(--comfy-menu-bg,#242424);color:var(--fg-color,#eee);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:12px;box-sizing:border-box;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+.ty-hit-dialog img{display:block;max-width:100%;max-height:52vh;object-fit:contain;background:#111;border-radius:5px;align-self:center}.ty-hit-dialog .ty-hit-dialog-title{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;font-weight:600}.ty-hit-dialog textarea{width:100%;min-height:80px;max-height:180px;resize:vertical;box-sizing:border-box;background:rgba(0,0,0,.28);color:inherit;border:1px solid rgba(255,255,255,.16);border-radius:4px;padding:7px;font:12px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.ty-hit-dialog .ty-hit-dialog-actions{display:flex;gap:6px;flex-wrap:wrap}
+`;
+document.head.appendChild(style);
+
+function notify(message, kind = "info") {
+  const color = kind === "error" ? "#e66" : kind === "ok" ? "#6dca91" : "#eee";
+  const toast = document.createElement("div"); toast.textContent = message; toast.style.cssText = `position:fixed;right:18px;bottom:18px;z-index:11000;padding:8px 12px;border-radius:5px;background:rgba(25,25,25,.94);color:${color};font:12px system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35)`; document.body.appendChild(toast); setTimeout(() => toast.remove(), 2600);
+}
+
+async function copyText(value, label) {
+  if (!value) return notify("当前图片没有可复制的内容", "error");
+  try { await navigator.clipboard.writeText(value); } catch (_) { const area = document.createElement("textarea"); area.value = value; area.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(area); area.select(); const ok = document.execCommand("copy"); area.remove(); if (!ok) return notify("复制失败，请手动选择文本", "error"); }
+  notify(`${label || "内容"}已复制`, "ok");
+}
+
+async function downloadItem(item, button) {
+  if (!item?.url) return notify("当前图片没有可下载地址", "error");
+  const oldLabel = button?.textContent; if (button) { button.disabled = true; button.textContent = "下载中…"; }
+  try { const response = await fetch(DOWNLOAD_ENDPOINT, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({url: item.url, id: item.id})}); const data = await response.json().catch(() => ({})); if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`); notify(`已下载：${data.filename || "output/ty-node"}`, "ok"); return data; }
+  catch (error) { notify(`下载失败：${error.message || error}`, "error"); return null; }
+  finally { if (button) { button.disabled = false; button.textContent = oldLabel || "下载"; } }
+}
+
+function metadataText(item) { const metadata = item?.metadata ?? item?.meta; return metadata && typeof metadata === "object" ? JSON.stringify(metadata, null, 2) : ""; }
+
+function openDialog(item) {
+  const backdrop = document.createElement("div"); backdrop.className = "ty-hit-dialog-backdrop"; const dialog = document.createElement("div"); dialog.className = "ty-hit-dialog";
+  const title = document.createElement("div"); title.className = "ty-hit-dialog-title"; title.append(document.createTextNode(item?.has_prompt ? "提示词详情" : "图片详情")); const close = document.createElement("button"); close.textContent = "关闭"; close.onclick = () => backdrop.remove(); title.appendChild(close);
+  const image = document.createElement("img"); image.src = item?.url || ""; image.alt = `Civitai ${item?.id || "image"}`; const prompt = document.createElement("textarea"); prompt.readOnly = true; prompt.placeholder = "没有检测到正向提示词"; prompt.value = item?.prompt || ""; const negative = document.createElement("textarea"); negative.readOnly = true; negative.placeholder = "没有检测到负面提示词"; negative.value = item?.negative_prompt || "";
+  const actions = document.createElement("div"); actions.className = "ty-hit-dialog-actions"; const cpPrompt = document.createElement("button"); cpPrompt.textContent = "复制正向提示词"; cpPrompt.onclick = () => copyText(prompt.value, "正向提示词"); const cpNegative = document.createElement("button"); cpNegative.textContent = "复制负面提示词"; cpNegative.onclick = () => copyText(negative.value, "负面提示词"); const all = document.createElement("button"); all.textContent = "复制全部 metadata"; all.onclick = () => copyText([prompt.value && `Prompt: ${prompt.value}`, negative.value && `Negative prompt: ${negative.value}`, metadataText(item)].filter(Boolean).join("\n"), "Metadata"); const source = item?.source_url || item?.post_url || item?.url; const openSource = document.createElement("button"); openSource.textContent = "打开 Civitai 原帖"; openSource.onclick = () => { if (source) window.open(source, "_blank", "noopener,noreferrer"); }; openSource.disabled = !source; actions.append(cpPrompt, cpNegative, all, openSource);
+  dialog.append(title, image, document.createTextNode("正向提示词"), prompt, document.createTextNode("负面提示词"), negative, actions); backdrop.appendChild(dialog); backdrop.onclick = (event) => { if (event.target === backdrop) backdrop.remove(); }; document.body.appendChild(backdrop); close.focus();
+}
+
+app.registerExtension({name: "ty.hit.image.node", nodeCreated(node) {
+  if (!NODE_TYPES.has(node.comfyClass)) return; node.properties = node.properties || {}; const findWidget = (name) => node.widgets?.find((widget) => widget.name === name); const setHidden = (name) => { const widget = findWidget(name); if (!widget) return; widget.hidden = true; widget.computeSize = () => [0, -4]; if (widget.element) widget.element.style.display = "none"; }; setHidden("page"); setHidden("refresh");
+  const root = document.createElement("div"); root.className = "ty-hit-gallery"; const toolbar = document.createElement("div"); toolbar.className = "ty-hit-toolbar"; const loadButton = document.createElement("button"); loadButton.textContent = "加载灵感图"; const refreshButton = document.createElement("button"); refreshButton.textContent = "刷新结果"; const nextButton = document.createElement("button"); nextButton.textContent = "下一页"; const allDownloadButton = document.createElement("button"); allDownloadButton.textContent = "下载当前页"; const status = document.createElement("span"); status.className = "ty-hit-status"; status.textContent = "尚未加载"; toolbar.append(loadButton, refreshButton, nextButton, allDownloadButton, status); const grid = document.createElement("div"); grid.className = "ty-hit-grid"; root.append(toolbar, grid); node._tyHitRoot = root; node._tyHitGrid = grid; node._tyHitStatus = status;
+  const setStatus = (message, kind = "") => { status.textContent = message; status.style.color = kind === "error" ? "#e66" : kind === "ok" ? "#6dca91" : ""; }; const setBusy = (busy) => { loadButton.disabled = refreshButton.disabled = nextButton.disabled = allDownloadButton.disabled = busy; }; const queue = (mode) => { const page = findWidget("page"); const refresh = findWidget("refresh"); if (mode === "next" && page) page.value = (Number(page.value) || 0) + 1; if ((mode === "refresh" || mode === "load") && refresh) refresh.value = !refresh.value; setStatus(mode === "next" ? "正在加载下一页…" : "正在加载…"); setBusy(true); if (app.queuePrompt) app.queuePrompt(); };
+  loadButton.onclick = () => queue("load"); refreshButton.onclick = () => queue("refresh"); nextButton.onclick = () => queue("next"); allDownloadButton.onclick = async () => { const items = node._tyHitItems || []; if (!items.length) return notify("当前页没有图片", "error"); setBusy(true); setStatus(`正在下载 ${items.length} 张…`); let success = 0; for (const item of items) if (await downloadItem(item)) success += 1; setBusy(false); setStatus(`已下载 ${success}/${items.length} 张`, success === items.length ? "ok" : "error"); };
+  function render(items, info = {}) { const safeItems = Array.isArray(items) ? items.filter((item) => item && item.url) : []; node._tyHitItems = safeItems; node.properties.ty_hit_gallery = safeItems.map((item) => ({...item})); grid.replaceChildren(); if (!safeItems.length) { const empty = document.createElement("div"); empty.className = "ty-hit-empty"; empty.textContent = info.error || "没有符合条件的图片"; grid.appendChild(empty); setStatus(info.error ? "加载失败" : "暂无结果", info.error ? "error" : ""); } else { safeItems.forEach((item) => { const card = document.createElement("div"); card.className = "ty-hit-card"; card.tabIndex = 0; const img = document.createElement("img"); img.src = item.url; img.alt = `Civitai ${item.id || "image"}`; img.onerror = () => { img.style.opacity = ".35"; }; img.onclick = () => openDialog(item); const badge = document.createElement("button"); badge.className = `ty-hit-badge${item.has_prompt ? "" : " empty"}`; badge.textContent = item.has_prompt ? "提示词 ✓" : "无提示词"; badge.title = "打开详情"; badge.onclick = (event) => { event.stopPropagation(); openDialog(item); }; const actions = document.createElement("div"); actions.className = "ty-hit-actions"; const download = document.createElement("button"); download.textContent = "下载"; download.onclick = (event) => { event.stopPropagation(); downloadItem(item, download); }; const details = document.createElement("button"); details.textContent = "详情"; details.onclick = (event) => { event.stopPropagation(); openDialog(item); }; actions.append(download, details); card.append(img, badge, actions); grid.appendChild(card); }); const page = Number(findWidget("page")?.value || 0) + 1; setStatus(`${info.stale ? "缓存 · " : ""}第 ${page} 页 · ${safeItems.length} 张`, "ok"); } setBusy(false); if (node.setDirtyCanvas) node.setDirtyCanvas(true, true); }
+  const saved = node.properties.ty_hit_gallery; if (Array.isArray(saved) && saved.length) render(saved, {stale: true}); if (node.addDOMWidget) node._tyHitWidget = node.addDOMWidget("ty_hit_preview", "preview", root, {serialize: false}); const previousExecuted = node.onExecuted; node.onExecuted = (output) => { if (previousExecuted) previousExecuted.call(node, output); const payload = output?.civitai || output?.output?.civitai || output?.output?.ui?.civitai || []; const info = output?.civitai_info || output?.output?.civitai_info || {}; render(payload, info); }; const previousError = node.onExecutionError; node.onExecutionError = (error) => { if (previousError) previousError.call(node, error); render([], {error: error?.message || "节点执行失败"}); };
 }});
-
-
-
