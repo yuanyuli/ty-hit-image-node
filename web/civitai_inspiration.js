@@ -8,7 +8,7 @@ app.registerExtension({name:"civitai.inspiration", nodeCreated(node){
     if(!r.ok) return alert("下载失败");
     node.properties.downloaded_filename=(await r.json()).filename;
   });
-  node.addWidget("button", "下一页（执行）", null, ()=>{ const w=node.widgets?.find(x=>x.name==='refresh'); if(w){w.value=!w.value; app.queuePrompt();} });
+  node.addWidget("button", "下一页（执行）", null, ()=>{ const w=node.widgets?.find(x=>x.name==='page'); if(w) w.value=(Number(w.value)||0)+1; const r=node.widgets?.find(x=>x.name==='refresh'); if(r) r.value=!r.value; app.queuePrompt(); });
   function render(items) {
     if(!items?.length) return;
     const item=items[0];

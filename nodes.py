@@ -16,21 +16,21 @@ class CivitaiInspirationLoader:
             "period": (['Day','Week','Month','AllTime'],), "media_type": (['image','video'],),
             "count": ('INT', {'default':10,'min':1,'max':20}), "result_index": ('INT', {'default':1,'min':1,'max':20}),
             "model": ('STRING', {'default':''}), "family": ('STRING', {'default':''}), "base_model": ('STRING', {'default':''}),
-            "lora": ('STRING', {'default':''}), "sfw": ('BOOLEAN', {'default':True}), "refresh": ('BOOLEAN', {'default':False})}, "optional": {"source": (["static", "civitai"], {'default':'static'})}}
+            "lora": ('STRING', {'default':''}), "sfw": ('BOOLEAN', {'default':True}), "refresh": ('BOOLEAN', {'default':False})}, "optional": {"source": (["static", "civitai"], {'default':'static'}), "page": ('INT', {'default':0,'min':0,'max':1000})}}
 
     RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING", "STRING", "IMAGE")
     RETURN_NAMES = ("image", "prompt", "negative_prompt", "metadata", "source_url", "batch")
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','media_type','count','result_index','model','family','base_model','lora','sfw','refresh'))
+        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','media_type','count','result_index','model','family','base_model','lora','sfw','refresh','source','page'))
     FUNCTION = "load"
     CATEGORY = "Civitai/Inspiration"
 
-    def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False, source='static'):
+    def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False, source='static', page=0):
         if source == 'static':
             from PIL import Image, ImageDraw
             items=[]
-            for i in range(1, min(count,9)+1):
+            for i in range(1 + page*min(count,9), 1 + page*min(count,9)+min(count,9)):
                 im=Image.new('RGB',(256,256),((i*37)%255,(i*71)%255,(i*109)%255)); ImageDraw.Draw(im).text((20,110),f'STATIC {i}',fill='white')
                 buf=io.BytesIO(); im.save(buf,'PNG'); data='data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode()
                 items.append({'id':f'static-{i}','url':data,'meta':{'prompt':f'static test prompt {i}','negativePrompt':'static test negative'}})
