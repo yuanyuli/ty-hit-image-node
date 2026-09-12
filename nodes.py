@@ -161,7 +161,7 @@ class TyHitImageNode:
             seen.add(key); gallery.append(entry)
             if len(gallery) >= count: break
         info = {'page': page_index, 'count': len(gallery), 'requested_count': count, 'next_cursor': next_cursor, 'has_next': bool(next_cursor), 'sort': sort, 'source': source, 'stale': stale_state['used']}
-        return {'ui': {'civitai': gallery, 'civitai_info': info}}
+        return {'ui': {'civitai': gallery, 'civitai_info': json.dumps(info, ensure_ascii=False)}}
 
 # 兼容早期已保存的 workflow。
 CivitaiInspirationLoader = TyHitImageNode
