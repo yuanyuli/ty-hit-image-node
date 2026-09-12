@@ -1,17 +1,23 @@
 from pathlib import Path
 from urllib.request import Request, urlopen
-from security import allowed_url
-import hashlib, shutil
+from security import is_civitai_url, safe_urlopen, read_limited, MAX_REMOTE_BYTES
+import hashlib, re
 
-def download_to_output(url, item_id, output_root):
+def download_to_output(url, item_id, output_root, max_bytes=MAX_REMOTE_BYTES):
     from urllib.parse import urlparse
-    host=urlparse(url).hostname
-    if not host or not allowed_url(url, host): raise ValueError('下载地址不在允许的 Civitai 域名内')
+    if not isinstance(url, str) or not is_civitai_url(url): raise ValueError('下载地址不在允许的 Civitai 域名内')
     if item_id is None: raise ValueError('缺少条目 ID')
+    safe_id = str(item_id)
+    if not re.fullmatch(r"[0-9]{1,32}", safe_id): raise ValueError('条目 ID 格式无效')
     root=Path(output_root).resolve() / 'ty-node'; root.mkdir(parents=True, exist_ok=True)
-    name=f"{item_id}-{hashlib.sha256(url.encode()).hexdigest()[:12]}.png"; target=root/name; tmp=target.with_suffix('.tmp')
+    name=f"{safe_id}-{hashlib.sha256(url.encode()).hexdigest()[:12]}.png"; target=root/name; tmp=target.with_suffix('.tmp')
     req=Request(url, headers={'User-Agent':'Mozilla/5.0', 'Referer':'https://civitai.com/'})
-    with urlopen(req, timeout=30) as src, tmp.open('wb') as dst:
-        shutil.copyfileobj(src,dst,1024*64)
-        if tmp.stat().st_size > 50*1024*1024: tmp.unlink(); raise ValueError('图片超过 50MB 限制')
-    tmp.replace(target); return str(Path('ty-node')/name)
+    try:
+        with safe_urlopen(req, timeout=30) as src:
+            final_url = src.geturl() if hasattr(src, 'geturl') else url
+            if not is_civitai_url(final_url): raise ValueError('不允许重定向到其他地址')
+            payload = read_limited(src, max_bytes)
+        tmp.write_bytes(payload)
+        tmp.replace(target); return str(Path('ty-node')/name)
+    finally:
+        if tmp.exists(): tmp.unlink()

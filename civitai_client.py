@@ -43,7 +43,7 @@ class CivitaiClient:
     def search(self, params):
         base=self.BASE.get(params.site)
         if not base: raise ValueError(f"不支持的站点: {params.site}")
-        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":str(params.sfw).lower()}
+        q={"limit": min(max(params.count,1),20), "period":params.period, "sort":"Most Reactions", "nsfw":str(not params.sfw).lower()}
         if params.media_type in ("image", "video"): q["type"] = params.media_type
         if params.prompt_query: q["query"]=params.prompt_query[:256]
         if params.cursor: q["cursor"] = params.cursor

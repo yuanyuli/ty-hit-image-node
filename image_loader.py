@@ -4,20 +4,41 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 import numpy as np
 from PIL import Image
+import warnings
+from security import is_civitai_url, safe_urlopen, read_limited, MAX_REMOTE_BYTES
 
-def load_image(path):
+MAX_IMAGE_PIXELS = 50_000_000
+
+def _open_image(source):
+    if isinstance(source, Image.Image):
+        if source.width * source.height > MAX_IMAGE_PIXELS:
+            raise ValueError("图片尺寸超过安全限制")
+        return np.asarray(source.convert("RGB"), dtype=np.float32) / 255.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", Image.DecompressionBombWarning)
+        with Image.open(source) as im:
+            if im.width * im.height > MAX_IMAGE_PIXELS:
+                raise ValueError("图片尺寸超过安全限制")
+            return np.asarray(im.convert("RGB"), dtype=np.float32) / 255.0
+
+def load_image(path, max_bytes=MAX_REMOTE_BYTES):
     if isinstance(path, Image.Image):
-        arr=np.asarray(path.convert('RGB'),dtype=np.float32)/255.0
+        arr=_open_image(path)
         try:
             import torch; return torch.from_numpy(arr[None,...])
         except ImportError: return arr[None,...]
     if isinstance(path, str) and path.startswith('https://'):
+        if not is_civitai_url(path): raise ValueError('图片地址不在允许的 Civitai 域名内')
         req=Request(path, headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer':'https://civitai.com/'})
-        try: source=BytesIO(urlopen(req, timeout=30).read())
+        try:
+            with safe_urlopen(req, timeout=30) as response:
+                final_url = response.geturl() if hasattr(response, 'geturl') else path
+                if not is_civitai_url(final_url): raise ValueError('不允许重定向到其他地址')
+                source=BytesIO(read_limited(response, max_bytes))
+        except ValueError: raise
         except HTTPError as exc: raise RuntimeError(f'图片下载失败（HTTP {exc.code}）：Civitai 图片地址拒绝访问') from exc
     else: source=Path(path)
-    with Image.open(source) as im:
-        arr=np.asarray(im.convert("RGB"),dtype=np.float32)/255.0
+    arr = _open_image(source)
     try:
         import torch
         return torch.from_numpy(arr[None,...])
@@ -28,10 +49,18 @@ def read_metadata(path):
     """读取 PNG/JPEG 内嵌参数，供节点补全 prompt。"""
     try:
         if isinstance(path, str) and path.startswith('https://'):
+            if not is_civitai_url(path): return {}
             req=Request(path, headers={'User-Agent':'Mozilla/5.0','Referer':'https://civitai.com/'})
-            source=BytesIO(urlopen(req, timeout=30).read())
+            with safe_urlopen(req, timeout=30) as response:
+                final_url = response.geturl() if hasattr(response, 'geturl') else path
+                if not is_civitai_url(final_url): return {}
+                source=BytesIO(read_limited(response))
         else: source=Path(path)
-        with Image.open(source) as im: return dict(im.info)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(source) as im:
+                if im.width * im.height > MAX_IMAGE_PIXELS: return {}
+                return dict(im.info)
     except Exception: return {}
 
 def stack_images(images):
