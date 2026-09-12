@@ -13,7 +13,10 @@ WEB_DIRECTORY = "web"
 try:
     from aiohttp import web
     import folder_paths
-    from .download_api import download_to_output
+    try:
+        from .download_api import download_to_output
+    except ImportError:
+        from download_api import download_to_output
     from server import PromptServer
     @PromptServer.instance.routes.post('/civitai-inspiration/download')
     async def _download(request):
