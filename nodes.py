@@ -95,5 +95,8 @@ class CivitaiInspirationLoader:
             if len(batch_images) >= min(count,9): break
         batch=stack_images(batch_images)
         meta=json.dumps({'id':selected.get('id'),'classification':normalized.classification,'prompt':normalized.prompt,'negative_prompt':normalized.negative_prompt}, ensure_ascii=False)
-        gallery=[{"id": x.get("id"), "url": x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl")} for x in page_items]
+        gallery=[]
+        for x in page_items:
+            m=normalize_item(x)
+            gallery.append({"id": x.get("id"), "url": x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl"), "has_prompt": bool(m.prompt)})
         return {"ui": {"civitai": gallery}, "result": (image, normalized.prompt, normalized.negative_prompt, meta, url, batch)}
