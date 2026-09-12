@@ -5,6 +5,7 @@ from urllib.error import HTTPError
 import numpy as np
 from PIL import Image
 import warnings
+import re
 from security import is_civitai_url, safe_urlopen, read_limited, MAX_REMOTE_BYTES
 
 MAX_IMAGE_PIXELS = 50_000_000
@@ -60,7 +61,16 @@ def read_metadata(path):
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(source) as im:
                 if im.width * im.height > MAX_IMAGE_PIXELS: return {}
-                return dict(im.info)
+                info=dict(im.info)
+                exif=info.get('exif', b'')
+                if isinstance(exif, (bytes, bytearray)):
+                    for enc in ('utf-16-be','utf-16-le','utf-8','latin-1'):
+                        try:
+                            text=bytes(exif).decode(enc, errors='ignore')
+                            m=re.search(r'"prompt"\s*:\s*"((?:\\.|[^"\\])*)"', text)
+                            if m: info['prompt']=bytes(m.group(1),'utf-8').decode('unicode_escape',errors='ignore'); break
+                        except Exception: continue
+                return info
     except Exception: return {}
 
 def stack_images(images):
