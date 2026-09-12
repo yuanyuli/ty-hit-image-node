@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from urllib.parse import urlencode
-import json, urllib.request
+import json, urllib.request, os
 
 @dataclass(frozen=True)
 class QueryParams:
@@ -22,7 +22,10 @@ class CivitaiClient:
     BASE = {"civitai.com":"https://civitai.com/api/v1/images", "civitai.red":"https://civitai.red/api/v1/images"}
     def _request_json(self, url):
         try:
-            with urllib.request.urlopen(url, timeout=15) as r: return json.load(r)
+            req=urllib.request.Request(url)
+            key=os.getenv('CIVITAI_API_KEY')
+            if key: req.add_header('Authorization', f'Bearer {key}')
+            with urllib.request.urlopen(req, timeout=15) as r: return json.load(r)
         except urllib.error.HTTPError as e:
             msgs={403:"需要授权或内容不可见",404:"资源不存在",429:"请求过于频繁"}
             raise ApiError(e.code, msgs.get(e.code, f"HTTP {e.code}")) from e

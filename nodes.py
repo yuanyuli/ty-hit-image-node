@@ -1,5 +1,5 @@
 import json
-from civitai_client import CivitaiClient, QueryParams
+from civitai_client import CivitaiClient, QueryParams, ApiError
 from metadata_parser import normalize_item
 from image_loader import load_image, stack_images
 
@@ -19,7 +19,12 @@ class CivitaiInspirationLoader:
     CATEGORY = "Civitai/Inspiration"
 
     def load(self, site, prompt_query, period, media_type, count, result_index, model='', family='', base_model='', lora='', sfw=True, refresh=False):
-        page=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count))
+        try:
+            page=CivitaiClient().search(QueryParams(site, prompt_query, period, media_type, count))
+        except ApiError as exc:
+            if exc.status == 403:
+                raise RuntimeError(f'Civitai 拒绝访问（403）：{exc.message}。如该站点要求授权，请设置环境变量 CIVITAI_API_KEY 后重启 ComfyUI。') from exc
+            raise RuntimeError(f'Civitai 请求失败（{exc.status}）：{exc.message}') from exc
         if result_index > len(page.items): raise RuntimeError(f'结果序号 {result_index} 越界，当前只有 {len(page.items)} 条结果')
         selected=page.items[result_index-1]; normalized=normalize_item(selected)
         url=selected.get('url') or selected.get('imageUrl') or selected.get('thumbnailUrl')
