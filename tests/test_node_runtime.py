@@ -1,4 +1,5 @@
 from PIL import Image
+import json
 import nodes
 
 def test_node_returns_comfy_ui_result_shape(tmp_path, monkeypatch):
@@ -33,4 +34,4 @@ def test_node_uses_cursor_pages_and_prompt_filter(tmp_path, monkeypatch):
     payload = out['ui']['civitai']
     assert [item['id'] for item in payload] == [2, 3]
     assert calls == [None, 'cursor-1']
-    assert out['ui']['civitai_info']['has_next'] is False
+    assert json.loads(out['ui']['civitai_info'])['has_next'] is False
