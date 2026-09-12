@@ -12,6 +12,8 @@ class NormalizedMetadata:
 
 def normalize_item(item):
     meta=item.get("meta") or item.get("metadata") or {}
+    if not isinstance(meta, dict):
+        meta = {}
     prompt=meta.get("prompt") or item.get("prompt") or ""
     neg=meta.get("negativePrompt") or meta.get("negative_prompt") or ""
     workflow=meta.get("workflow") or item.get("workflow")
