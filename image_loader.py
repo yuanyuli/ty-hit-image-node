@@ -6,6 +6,11 @@ import numpy as np
 from PIL import Image
 
 def load_image(path):
+    if isinstance(path, Image.Image):
+        arr=np.asarray(path.convert('RGB'),dtype=np.float32)/255.0
+        try:
+            import torch; return torch.from_numpy(arr[None,...])
+        except ImportError: return arr[None,...]
     if isinstance(path, str) and path.startswith('https://'):
         req=Request(path, headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer':'https://civitai.com/'})
         try: source=BytesIO(urlopen(req, timeout=30).read())
