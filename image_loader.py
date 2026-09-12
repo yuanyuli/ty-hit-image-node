@@ -1,11 +1,16 @@
 from pathlib import Path
 from io import BytesIO
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import numpy as np
 from PIL import Image
 
 def load_image(path):
-    source = BytesIO(urlopen(path, timeout=30).read()) if isinstance(path, str) and path.startswith('https://') else Path(path)
+    if isinstance(path, str) and path.startswith('https://'):
+        req=Request(path, headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer':'https://civitai.com/'})
+        try: source=BytesIO(urlopen(req, timeout=30).read())
+        except HTTPError as exc: raise RuntimeError(f'图片下载失败（HTTP {exc.code}）：Civitai 图片地址拒绝访问') from exc
+    else: source=Path(path)
     with Image.open(source) as im:
         arr=np.asarray(im.convert("RGB"),dtype=np.float32)/255.0
     try:

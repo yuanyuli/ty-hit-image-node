@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 from urllib.parse import urlparse
 
-_HOSTS = {"civitai.com", "civitai.red"}
+_HOSTS = {"civitai.com", "civitai.red", "image.civitai.com", "image.civitai.red"}
 
 def allowed_url(url: str, site: str) -> bool:
     parsed = urlparse(url)
