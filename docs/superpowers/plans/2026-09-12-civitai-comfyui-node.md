@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 构建一个完全独立、可安装、可测试的 ComfyUI Civitai 灵感图加载节点。
+**Goal:** 构建一个完全独立、可安装、可测试的 ComfyUI Civitai 灵感图画廊节点。当前产品是纯展示节点，没有 ComfyUI 输出端口；旧版输出端口和自动图片加载节点计划已废弃。
 
 **Architecture:** 节点仓库自行实现 Civitai HTTP 客户端、metadata 归一化、缓存、安全下载和 ComfyUI 类型转换。模块通过数据类传递结构化结果，不依赖 `ty-civitai-gallery` 或本地 Web 服务；ComfyUI 只负责加载注册和执行节点。
 
@@ -15,7 +15,7 @@
 - 运行时不依赖主项目的 Python 包、Web 服务、数据库、缓存或目录。
 - 只请求 `https://civitai.com/api/v1/` 和 `https://civitai.red/api/v1/` 的公开 HTTPS 资源。
 - API Key 只从环境变量读取，不进入 workflow、输出、日志、缓存或 manifest。
-- 不下载模型、不执行 workflow、不读取 Cookie、不写入 ComfyUI 的 models/workflows/input/output，也不使用 `F:\bddownload`。
+- 不下载模型、不执行 workflow、不读取 Cookie、不写入 ComfyUI 的 models/workflows/input，也不使用 `F:\bddownload`；下载图片只写入 `output/ty-node/`。
 - 查询读取量最多为 `count`（1–20），遇到重复 cursor 立即停止。
 - 网络超时可返回陈旧缓存并写入 `stale=true`；无缓存时必须给出可读错误。
 - 中文显示名称、标签和 tooltip；英文代码字段；节点分类 `Civitai/Inspiration`。
@@ -163,7 +163,7 @@ git add metadata_parser.py tests/test_metadata_parser.py
 git commit -m "feat: normalize Civitai metadata"
 ```
 
-### Task 5: 实现缓存和图片/视频预览加载
+### Task 5: 实现缓存和图片预览加载
 
 **Files:**
 - Create: `cache.py`
@@ -180,7 +180,7 @@ git commit -m "feat: normalize Civitai metadata"
 
 - [ ] **Step 1: 写缓存命中、刷新、陈旧和安全下载测试**
 
-测试缓存 key 包含所有筛选参数和版本；超时场景可读取 stale；图片使用临时文件和 SHA-256；视频优先 thumbnail，没有预览图时明确失败；不同尺寸批次保持比例缩放并边缘填充。
+测试缓存 key 包含所有筛选参数和版本；超时场景可读取 stale；图片使用临时文件和 SHA-256；视频输入明确拒绝或提示未支持。
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -189,7 +189,7 @@ Expected: FAIL。
 
 - [ ] **Step 3: 实现缓存和媒体转换**
 
-使用节点自有缓存目录；图片转为 ComfyUI 约定的 `[B,H,W,C]` float32 tensor；视频只读取官方预览图/缩略图；批次统一到首张图片尺寸。
+使用节点自有缓存目录；画廊使用官方图片 URL；不向 ComfyUI 输出图像 tensor。
 
 - [ ] **Step 4: 运行测试确认通过并提交**
 
@@ -200,7 +200,7 @@ git add cache.py image_loader.py tests/test_cache.py tests/test_image_loader.py
 git commit -m "feat: add cache and media loading"
 ```
 
-### Task 6: 实现 ComfyUI 节点注册和执行
+### Task 6: 实现 ComfyUI 节点注册和纯展示执行
 
 **Files:**
 - Create: `nodes.py`
@@ -208,13 +208,13 @@ git commit -m "feat: add cache and media loading"
 
 **Interfaces:**
 - `CivitaiInspirationLoader.INPUT_TYPES() -> dict`
-- `CivitaiInspirationLoader.RETURN_TYPES == ("IMAGE", "STRING", "STRING", "STRING", "STRING", "IMAGE")`
+- `CivitaiInspirationLoader.RETURN_TYPES == ()`
 - `CivitaiInspirationLoader.FUNCTION == "load"`
-- `load(...) -> tuple`
+- `load(...) -> {"ui": {"civitai": [...]}}`
 
 - [ ] **Step 1: 写节点接口和 fake client 执行测试**
 
-验证中文显示映射、输入默认值/范围、序号越界错误、六个输出顺序和 stale metadata。
+验证中文显示映射、输入默认值/范围、纯展示 UI 数据、空结果和 stale 状态。
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -223,7 +223,7 @@ Expected: FAIL。
 
 - [ ] **Step 3: 实现节点执行函数**
 
-规范化输入，生成缓存 key，调用 client、parser、loader，按 1-based `result_index` 选择结果；将异常转换为 ComfyUI 可读的 `RuntimeError`；返回单图、prompt、negative prompt、JSON metadata、source URL、batch。
+规范化输入，生成缓存 key，调用 client 和 parser，生成画廊数据；将异常转换为 ComfyUI 可读的 `RuntimeError`；不生成 ComfyUI 输出端口。
 
 - [ ] **Step 4: 运行测试确认通过并提交**
 
@@ -248,7 +248,7 @@ git commit -m "feat: register Civitai inspiration loader node"
 
 - [ ] **Step 1: 写端到端 fake server 测试**
 
-覆盖站点切换、图片结果、视频预览图、缓存命中和网络错误。
+覆盖站点切换、图片结果、缓存命中、空结果和网络错误；视频输入应明确提示未支持。
 
 - [ ] **Step 2: 运行全量测试确认缺口**
 
