@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from urllib.parse import urlencode
-import json, urllib.request, urllib.error, os, time
+import json, urllib.request, urllib.error, os, time, re, html
 
 @dataclass(frozen=True)
 class QueryParams:
@@ -58,3 +58,22 @@ class CivitaiClient:
         if params.cursor: q["cursor"] = params.cursor
         data=self._request_json(base+"?"+urlencode(q)); items=data.get("items", [])[:q["limit"]]
         meta=data.get("metadata") or {}; return SearchPage(items, meta.get("nextCursor"))
+
+    def page_metadata(self, site, image_id):
+        """从公开图片页的嵌入状态读取 API 未返回的 prompt。"""
+        if site not in self.BASE or not str(image_id).isdigit(): return {}
+        req=urllib.request.Request(f"https://{site}/images/{image_id}", headers={"User-Agent":"Mozilla/5.0","Referer":"https://civitai.com/"})
+        try:
+            try:
+                with urllib.request.urlopen(req, timeout=15) as r: text=html.unescape(r.read(2_000_000).decode('utf-8','ignore'))
+            except Exception:
+                if site != 'civitai.com':
+                    fallback=urllib.request.Request(f"https://civitai.com/images/{image_id}", headers={"User-Agent":"Mozilla/5.0","Referer":"https://civitai.com/"})
+                    with urllib.request.urlopen(fallback, timeout=15) as r: text=html.unescape(r.read(2_000_000).decode('utf-8','ignore'))
+                else: return {}
+            flag=re.search(r'"hasPositivePrompt"\s*:\s*(true|false)', text)
+            if flag and flag.group(1) == 'false': return {}
+            m=re.search(r'"meta"\s*:\s*\{\s*"prompt"\s*:\s*"((?:\\.|[^"\\])*)"(?:\s*,\s*"negativePrompt"\s*:\s*"((?:\\.|[^"\\])*)")?', text)
+            if not m: return {}
+            return {'prompt': json.loads('"'+m.group(1)+'"'), 'negativePrompt': json.loads('"'+(m.group(2) or '')+'"')}
+        except Exception: return {}
