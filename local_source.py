@@ -72,6 +72,7 @@ def _item(root: Path, path: Path) -> dict:
         "id": f"local-{name}",
         "url": f"/view?filename={view_name}&type=output",
         "source_url": None,
+        "local": True,
         "has_prompt": bool(prompt),
         "prompt": prompt,
         "prompt_status": "embedded" if prompt else "unavailable",

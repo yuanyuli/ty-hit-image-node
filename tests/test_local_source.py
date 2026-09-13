@@ -33,6 +33,9 @@ def test_lists_only_images_inside_ty_node_with_view_urls(tmp_path):
     assert item["prompt"] == "a cat"
     assert item["prompt_status"] == "embedded"
     assert item["source_url"] is None
+    assert item["local"] is True
+    assert item["source"] == "local"
+    assert item["local"] is True
 
 
 def test_filters_search_and_paginates_newest_first(tmp_path):
