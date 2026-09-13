@@ -37,6 +37,7 @@ def _gallery_item(item, site):
         normalized.prompt = ''
     if not isinstance(normalized.negative_prompt, str):
         normalized.negative_prompt = ''
+    prompt_status = 'api' if normalized.prompt else 'unknown'
     meta_key=(site, item.get('id'))
     embedded = _META_CACHE.get(meta_key) if not normalized.prompt and item.get('id') else {}
     if embedded is None:
@@ -49,6 +50,9 @@ def _gallery_item(item, site):
         normalized.prompt = embedded['prompt']
         normalized.negative_prompt = embedded['negativePrompt']
         meta = {**meta, **embedded}
+        prompt_status = 'page'
+    elif not normalized.prompt:
+        prompt_status = 'unavailable'
     item_id = item.get('id')
     source_url = item.get('source_url') or (f"https://{site}/images/{quote(str(item_id), safe='')}" if item_id is not None else None)
     try:
@@ -59,6 +63,7 @@ def _gallery_item(item, site):
     author = user.get('username') if isinstance(user, dict) else item.get('username')
     return {'id': item_id, 'url': url, 'source_url': source_url,
             'has_prompt': bool(normalized.prompt.strip()), 'prompt': normalized.prompt,
+            'prompt_status': prompt_status,
             'negative_prompt': normalized.negative_prompt, 'classification': normalized.classification,
             'metadata': metadata, 'author': author,
             'created_at': item.get('createdAt') or item.get('created_at'),
