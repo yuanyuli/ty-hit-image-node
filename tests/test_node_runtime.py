@@ -73,3 +73,26 @@ def test_gallery_item_exposes_models_and_loras():
     }}, "civitai.com")
     assert item["models"] == [{"name": "Base XL"}]
     assert item["loras"] == [{"name": "Detail"}]
+
+
+def test_gallery_item_does_not_treat_hidden_prompt_workflow_as_positive_prompt(monkeypatch):
+    class FakeClient:
+        def page_metadata(self, site, image_id):
+            return {
+                'hasPositivePrompt': False,
+                'workflow': {'nodes': [{'id': 1}], 'version': 1},
+            }
+
+    monkeypatch.setattr(nodes, 'CivitaiClient', FakeClient)
+    item = nodes._gallery_item({
+        'id': 142564294,
+        'url': 'https://image.civitai.com/142564294.png',
+        'meta': {'prompt': '{"nodes": [{"id": 1}]}', 'negativePrompt': ''},
+    }, 'civitai.com')
+
+    assert item['has_prompt'] is False
+    assert item['prompt'] == ''
+    assert item['prompt_status'] == 'unavailable'
+    assert item['workflow']['version'] == 1
+    assert 'prompt' not in item['metadata']
+    assert 'negativePrompt' not in item['metadata']

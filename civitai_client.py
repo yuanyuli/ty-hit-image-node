@@ -1,6 +1,58 @@
 from dataclasses import dataclass
 from urllib.parse import urlencode
-import json, urllib.request, urllib.error, os, time, re, html
+import json, urllib.request, urllib.error, os, time, html
+
+
+def _iter_json_key_values(text, key):
+    """只匹配 JSON 字符串外层的 key，忽略嵌套序列化字符串。"""
+    decoder = json.JSONDecoder()
+    index = 0
+    while index < len(text):
+        if text[index] != '"':
+            index += 1
+            continue
+        start = index
+        index += 1
+        escaped = False
+        while index < len(text):
+            char = text[index]
+            index += 1
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                break
+        try:
+            name = json.loads(text[start:index])
+        except (ValueError, TypeError):
+            continue
+        cursor = index
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        if name != key or cursor >= len(text) or text[cursor] != ':':
+            continue
+        cursor += 1
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        try:
+            value, _ = decoder.raw_decode(text, cursor)
+        except (ValueError, TypeError):
+            continue
+        yield value
+
+
+def _extract_json_value(text, key):
+    """从包含任意脚本内容的文本中读取 key 对应的一个 JSON 值。"""
+    return next(_iter_json_key_values(text, key), None)
+
+
+def _extract_meta_prompt(text):
+    """寻找含 prompt 字段的页面 meta 对象，避免依赖字段顺序。"""
+    for value in _iter_json_key_values(text, 'meta'):
+        if isinstance(value, dict) and isinstance(value.get('prompt'), str):
+            return value
+    return {}
 
 @dataclass(frozen=True)
 class QueryParams:
@@ -60,7 +112,7 @@ class CivitaiClient:
         meta=data.get("metadata") or {}; return SearchPage(items, meta.get("nextCursor"))
 
     def page_metadata(self, site, image_id):
-        """从公开图片页的嵌入状态读取 API 未返回的 prompt。"""
+        """从公开图片页的嵌入状态读取 prompt、可见性标记和 workflow。"""
         if site not in self.BASE or not str(image_id).isdigit(): return {}
         req=urllib.request.Request(f"https://{site}/images/{image_id}", headers={"User-Agent":"Mozilla/5.0","Referer":"https://civitai.com/"})
         try:
@@ -71,9 +123,26 @@ class CivitaiClient:
                     fallback=urllib.request.Request(f"https://civitai.com/images/{image_id}", headers={"User-Agent":"Mozilla/5.0","Referer":"https://civitai.com/"})
                     with urllib.request.urlopen(fallback, timeout=15) as r: text=html.unescape(r.read(2_000_000).decode('utf-8','ignore'))
                 else: return {}
-            flag=re.search(r'"hasPositivePrompt"\s*:\s*(true|false)', text)
-            if flag and flag.group(1) == 'false': return {}
-            m=re.search(r'"meta"\s*:\s*\{\s*"prompt"\s*:\s*"((?:\\.|[^"\\])*)"(?:\s*,\s*"negativePrompt"\s*:\s*"((?:\\.|[^"\\])*)")?', text)
-            if not m: return {}
-            return {'prompt': json.loads('"'+m.group(1)+'"'), 'negativePrompt': json.loads('"'+(m.group(2) or '')+'"')}
+            result = {}
+            flag = _extract_json_value(text, 'hasPositivePrompt')
+            if isinstance(flag, bool):
+                result['hasPositivePrompt'] = flag
+
+            meta = _extract_meta_prompt(text)
+            if flag is not False and isinstance(meta.get('prompt'), str):
+                result['prompt'] = meta['prompt']
+                negative = meta.get('negativePrompt') or meta.get('negative_prompt')
+                if isinstance(negative, str):
+                    result['negativePrompt'] = negative
+
+            workflow = _extract_json_value(text, 'workflow')
+            if isinstance(workflow, str):
+                try:
+                    parsed = json.loads(workflow)
+                except (TypeError, ValueError):
+                    parsed = None
+                workflow = parsed if isinstance(parsed, (dict, list)) else None
+            if isinstance(workflow, (dict, list)):
+                result['workflow'] = workflow
+            return result
         except Exception: return {}

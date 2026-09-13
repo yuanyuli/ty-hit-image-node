@@ -81,18 +81,66 @@ function cycleEnumWidget(widget) {
   return true;
 }
 
+function enumWidgetAt(node, y) {
+  return (node.widgets || []).filter((widget) => !widget.hidden && Array.isArray(widget?.options?.values) && widget.options.values.length > 1).find((widget) => {
+    const top = Number(widget.last_y ?? widget.y);
+    const height = Number(widget.computeSize?.(node.size?.[0])?.[1] || 30);
+    return Number.isFinite(top) && y >= top && y <= top + height;
+  });
+}
+
+function installCanvasEnumCycling(node) {
+  const canvas = app.canvasEl || app.canvas?.canvas || app.canvas?.el || app.canvas?.canvasEl;
+  if (!canvas || typeof canvas.addEventListener !== "function") return;
+  const nodes = canvas.__tyHitEnumNodes || (canvas.__tyHitEnumNodes = new Set());
+  nodes.add(node);
+  if (canvas.__tyHitEnumCycle) return;
+  const handler = (event) => {
+    if (event.button !== 2 || (typeof canvas.contains === "function" && !canvas.contains(event.target))) return;
+    const rect = canvas.getBoundingClientRect();
+    const scale = Number(app.canvas?.ds?.scale) || 1;
+    const offset = app.canvas?.ds?.offset || [0, 0];
+    const x = (event.clientX - rect.left) / scale - Number(offset[0] || 0);
+    const y = (event.clientY - rect.top) / scale - Number(offset[1] || 0);
+    const targetNode = [...nodes].reverse().find((candidate) => {
+      const [left, top] = candidate.pos || [0, 0];
+      const [width, height] = candidate.size || [0, 0];
+      return x >= left && x <= left + width && y >= top && y <= top + height;
+    });
+    if (!targetNode) return;
+    const widget = enumWidgetAt(targetNode, y - Number(targetNode.pos?.[1] || 0));
+    if (!widget || !cycleEnumWidget(widget)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    targetNode.onWidgetChanged?.(widget.name, widget.value, undefined, widget);
+    targetNode.setDirtyCanvas?.(true, true);
+  };
+  canvas.addEventListener("contextmenu", handler, true);
+  canvas.__tyHitEnumCycle = {handler, nodes};
+}
+
+function workflowText(item) {
+  if (typeof item?.workflow === "string") return item.workflow;
+  if (item?.workflow && typeof item.workflow === "object") return JSON.stringify(item.workflow, null, 2);
+  return "";
+}
+
+function hasWorkflow(item) {
+  return Boolean(item?.has_workflow || workflowText(item));
+}
+
 function openDialog(item) {
   const backdrop = document.createElement("div"); backdrop.className = "ty-hit-dialog-backdrop"; const dialog = document.createElement("div"); dialog.className = "ty-hit-dialog";
   const title = document.createElement("div"); title.className = "ty-hit-dialog-title"; title.append(document.createTextNode(item?.has_prompt ? "提示词详情" : "图片详情")); const close = document.createElement("button"); close.textContent = "关闭"; close.onclick = () => backdrop.remove(); title.appendChild(close);
   const image = document.createElement("img"); image.src = item?.url || ""; image.alt = `Civitai ${item?.id || "image"}`; const prompt = document.createElement("textarea"); prompt.readOnly = true; prompt.placeholder = "没有检测到正向提示词"; prompt.value = item?.prompt || ""; const negative = document.createElement("textarea"); negative.readOnly = true; negative.placeholder = "没有检测到负面提示词"; negative.value = item?.negative_prompt || "";
   const resources = document.createElement("div"); resources.className = "ty-hit-resources"; const addResourceGroup = (label, kind) => { const group = document.createElement("div"); group.className = "ty-hit-resource-group"; const heading = document.createElement("div"); heading.className = "ty-hit-resource-title"; heading.textContent = label; const list = document.createElement("div"); list.className = "ty-hit-resource-list"; const values = resourceValues(item, kind).map(resourceLabel).filter(Boolean); list.textContent = values.length ? values.join("\n") : "未检测到"; if (!values.length) list.classList.add("ty-hit-resource-empty"); group.append(heading, list); resources.appendChild(group); }; addResourceGroup("模型", "models"); addResourceGroup("LoRA", "loras");
-  const actions = document.createElement("div"); actions.className = "ty-hit-dialog-actions"; const cpPrompt = document.createElement("button"); cpPrompt.textContent = "复制正向提示词"; cpPrompt.onclick = () => copyText(prompt.value, "正向提示词"); const cpNegative = document.createElement("button"); cpNegative.textContent = "复制负面提示词"; cpNegative.onclick = () => copyText(negative.value, "负面提示词"); const all = document.createElement("button"); all.textContent = "复制全部 metadata"; all.onclick = () => copyText([prompt.value && `Prompt: ${prompt.value}`, negative.value && `Negative prompt: ${negative.value}`, metadataText(item)].filter(Boolean).join("\n"), "Metadata"); const local = isLocalItem(item); const dialogDownload = document.createElement("button"); dialogDownload.textContent = "下载图片"; dialogDownload.onclick = () => downloadItem(item, dialogDownload); const source = item?.source_url || item?.post_url; const openSource = document.createElement("button"); openSource.textContent = local ? "本地文件" : "打开 Civitai 原帖"; openSource.onclick = () => { if (source) window.open(source, "_blank", "noopener,noreferrer"); }; openSource.disabled = local || !source; if (!local) actions.append(dialogDownload); actions.append(cpPrompt, cpNegative, all, openSource);
+  const actions = document.createElement("div"); actions.className = "ty-hit-dialog-actions"; const cpPrompt = document.createElement("button"); cpPrompt.textContent = "复制正向提示词"; cpPrompt.onclick = () => copyText(prompt.value, "正向提示词"); const cpNegative = document.createElement("button"); cpNegative.textContent = "复制负面提示词"; cpNegative.onclick = () => copyText(negative.value, "负面提示词"); const workflow = workflowText(item); const cpWorkflow = document.createElement("button"); cpWorkflow.textContent = "复制工作流"; cpWorkflow.onclick = () => copyText(workflow, "工作流"); cpWorkflow.disabled = !hasWorkflow(item); cpWorkflow.title = workflow ? "复制 ComfyUI 工作流 JSON" : "当前图片没有工作流"; const all = document.createElement("button"); all.textContent = "复制全部 metadata"; all.onclick = () => copyText([prompt.value && `Prompt: ${prompt.value}`, negative.value && `Negative prompt: ${negative.value}`, metadataText(item)].filter(Boolean).join("\n"), "Metadata"); const local = isLocalItem(item); const dialogDownload = document.createElement("button"); dialogDownload.textContent = "下载图片"; dialogDownload.onclick = () => downloadItem(item, dialogDownload); const source = item?.source_url || item?.post_url; const openSource = document.createElement("button"); openSource.textContent = local ? "本地文件" : "打开 Civitai 原帖"; openSource.onclick = () => { if (source) window.open(source, "_blank", "noopener,noreferrer"); }; openSource.disabled = local || !source; if (!local) actions.append(dialogDownload); actions.append(cpPrompt, cpNegative, cpWorkflow, all, openSource);
   dialog.append(title, image, document.createTextNode("正向提示词"), prompt, document.createTextNode("负面提示词"), negative, resources, actions); backdrop.appendChild(dialog); backdrop.onclick = (event) => { if (event.target === backdrop) backdrop.remove(); }; document.body.appendChild(backdrop); close.focus();
 }
 
 app.registerExtension({name: "ty.hit.image.node", nodeCreated(node) {
   if (!NODE_TYPES.has(node.comfyClass)) return; node.properties = node.properties || {}; const findWidget = (name) => node.widgets?.find((widget) => widget.name === name); const setHidden = (name) => { const widget = findWidget(name); if (!widget) return; widget.hidden = true; widget.computeSize = () => [0, -4]; if (widget.element) widget.element.style.display = "none"; }; setHidden("page"); setHidden("refresh");
-  const enumWidgets = (node.widgets || []).filter((widget) => !widget.hidden && Array.isArray(widget?.options?.values) && widget.options.values.length > 1); const previousMouseDown = node.onMouseDown; node.onMouseDown = function(event, pos, canvas) { if (event?.button === 2) { const y = Number(pos?.[1]); const target = enumWidgets.find((widget) => { const top = Number(widget.last_y); const height = Number(widget.computeSize?.(node.size?.[0])?.[1] || 30); return Number.isFinite(y) && Number.isFinite(top) && y >= top && y <= top + height; }); if (target && cycleEnumWidget(target)) { event.preventDefault?.(); event.stopPropagation?.(); node.setDirtyCanvas?.(true, true); return true; } } return previousMouseDown?.apply(this, arguments); };
+  installCanvasEnumCycling(node); const previousMouseDown = node.onMouseDown; node.onMouseDown = function(event, pos, canvas) { if (event?.button === 2) { const target = enumWidgetAt(node, Number(pos?.[1])); if (target && cycleEnumWidget(target)) { event.preventDefault?.(); event.stopPropagation?.(); node.onWidgetChanged?.(target.name, target.value, undefined, target); node.setDirtyCanvas?.(true, true); return true; } } return previousMouseDown?.apply(this, arguments); };
   const resetOnChange = new Set(["site", "prompt_query", "period", "count", "sfw", "sort", "only_with_prompt", "source"]); const originalWidgetCallbacks = new WeakMap(); (node.widgets || []).forEach((widget) => { if (!resetOnChange.has(widget.name) || typeof widget.callback !== "function") return; const original = widget.callback; originalWidgetCallbacks.set(widget, original); widget.callback = function(value) { const page = findWidget("page"); if (page) page.value = 0; return original.apply(this, arguments); }; });
   const previousWidgetChanged = node.onWidgetChanged; node.onWidgetChanged = function(name, value, oldValue) { if (previousWidgetChanged) previousWidgetChanged.apply(this, arguments); if (resetOnChange.has(name)) { const page = findWidget("page"); if (page) page.value = 0; } };
   const root = document.createElement("div"); root.className = "ty-hit-gallery"; const toolbar = document.createElement("div"); toolbar.className = "ty-hit-toolbar"; const loadButton = document.createElement("button"); loadButton.textContent = "加载灵感图"; const refreshButton = document.createElement("button"); refreshButton.textContent = "刷新结果"; const nextButton = document.createElement("button"); nextButton.textContent = "下一页"; const allDownloadButton = document.createElement("button"); allDownloadButton.textContent = "下载当前页"; const status = document.createElement("span"); status.className = "ty-hit-status"; status.textContent = "尚未加载"; toolbar.append(loadButton, refreshButton, nextButton, allDownloadButton, status); const grid = document.createElement("div"); grid.className = "ty-hit-grid"; root.append(toolbar, grid); node._tyHitRoot = root; node._tyHitGrid = grid; node._tyHitStatus = status;

@@ -30,7 +30,10 @@ def test_site_widget_supports_right_click_cycle():
     source = FRONTEND.read_text(encoding="utf-8")
     assert "function cycleEnumWidget" in source
     assert "event?.button === 2" in source
-    assert "enumWidgets" in source
+    assert "function enumWidgetAt" in source
+    assert "installCanvasEnumCycling" in source
+    assert "addEventListener(\"contextmenu\"" in source
+    assert "preventDefault();" in source
 
 
 def test_details_dialog_includes_model_and_lora_sections():
@@ -38,3 +41,10 @@ def test_details_dialog_includes_model_and_lora_sections():
     assert "function resourceLabel" in source
     assert "模型" in source
     assert "LoRA" in source
+
+
+def test_details_dialog_offers_workflow_copy_separately_from_prompt():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "复制工作流" in source
+    assert "JSON.stringify(item.workflow, null, 2)" in source
+    assert "has_workflow" in source

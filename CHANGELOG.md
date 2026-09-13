@@ -5,7 +5,9 @@
 ## [Unreleased]
 
 - 详情弹窗新增模型和 LoRA 信息区，基于公开 metadata 展示资源名称与 hash。
-- 下拉枚举参数支持右键循环选择，适用于站点、周期和排序等控件。
+- 下拉枚举参数支持在画布捕获阶段右键循环选择，适用于站点、周期和排序等控件。
+- 详情页正确区分公开正向提示词与 ComfyUI workflow JSON；workflow 可单独复制。
+- workflow 页面数据会保留模型、LoRA 和节点图信息，不再把 workflow JSON 当作正向提示词。
 - 新增“从本地获取”站点选项，可浏览 `output/ty-node/` 中已下载的历史图片。
 - 继续验证最新 ComfyUI 前端生命周期和 Civitai API 变化。
 - 收集公开 Beta 用户反馈，优先修复分页、提示词识别和下载兼容问题。

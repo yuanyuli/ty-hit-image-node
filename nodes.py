@@ -37,6 +37,19 @@ def _embedded_prompt(url):
         return {}
     return {'prompt': prompt.strip(), 'negativePrompt': info.get('negativePrompt') or info.get('negative_prompt') or ''}
 
+
+def _looks_like_workflow(value):
+    if not isinstance(value, str):
+        return isinstance(value, (dict, list)) and (isinstance(value, list) or any(k in value for k in ('nodes', 'prompt', 'workflow')))
+    text = value.strip()
+    if not text or text[0] not in '[{':
+        return False
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return False
+    return _looks_like_workflow(parsed)
+
 def _gallery_item(item, site):
     url = item.get('url') or item.get('imageUrl') or item.get('thumbnailUrl')
     meta = item.get('meta') or item.get('metadata') or {}
@@ -49,20 +62,29 @@ def _gallery_item(item, site):
         normalized.negative_prompt = ''
     prompt_status = 'api' if normalized.prompt else 'unknown'
     meta_key=(site, item.get('id'))
-    embedded = _META_CACHE.get(meta_key) if not normalized.prompt and item.get('id') else {}
+    api_prompt_is_workflow = _looks_like_workflow(normalized.prompt)
+    embedded = _META_CACHE.get(meta_key) if item.get('id') and (not normalized.prompt or api_prompt_is_workflow or item.get('hasPositivePrompt') is False) else {}
     if embedded is None:
         try: embedded = CivitaiClient().page_metadata(site, item.get('id'))
         except Exception: embedded = {}
         _META_CACHE[meta_key] = embedded
-    if not embedded:
+    if not embedded and not normalized.prompt:
         embedded = _embedded_prompt(url) if not normalized.prompt else {}
-    if embedded:
+    page_hides_prompt = isinstance(embedded, dict) and embedded.get('hasPositivePrompt') is False
+    if page_hides_prompt or (embedded.get('workflow') and not embedded.get('prompt') and api_prompt_is_workflow):
+        normalized.prompt = ''
+        normalized.negative_prompt = ''
+        meta = {key: value for key, value in meta.items() if key not in ('prompt', 'negativePrompt', 'negative_prompt')}
+        prompt_status = 'unavailable'
+    elif embedded.get('prompt'):
         normalized.prompt = embedded['prompt']
         normalized.negative_prompt = embedded['negativePrompt']
         meta = {**meta, **embedded}
         prompt_status = 'page'
     elif not normalized.prompt:
         prompt_status = 'unavailable'
+    if embedded.get('workflow'):
+        meta = {**meta, 'workflow': embedded['workflow']}
     item_id = item.get('id')
     source_url = item.get('source_url') or (f"https://{site}/images/{quote(str(item_id), safe='')}" if item_id is not None else None)
     try:
@@ -76,6 +98,7 @@ def _gallery_item(item, site):
             'prompt_status': prompt_status,
             'negative_prompt': normalized.negative_prompt, 'classification': normalized.classification,
             'models': normalized.models or [], 'loras': normalized.loras or [],
+            'workflow': meta.get('workflow'), 'has_workflow': bool(meta.get('workflow')),
             'metadata': metadata, 'author': author,
             'created_at': item.get('createdAt') or item.get('created_at'),
             'nsfw': bool(item.get('nsfw', False))}
