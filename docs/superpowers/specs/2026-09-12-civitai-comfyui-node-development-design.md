@@ -10,7 +10,7 @@
 
 提供一个名为“Civitai 灵感图画廊”的纯展示节点：用户输入站点、关键词和筛选条件后，节点读取公开 Civitai 图片并在节点内分页展示。节点没有 ComfyUI 输出端口，不参与下游工作流执行。
 
-当前版本支持 `civitai.com` 和 `civitai.red` 的图片查询。视频播放、视频解码和视频输出不在当前版本范围内；如保留媒介选择控件，必须明确提示该能力尚未支持。
+当前版本支持 `civitai.com` 和 `civitai.red` 的图片查询，并支持“从本地获取”浏览节点下载历史。视频播放、视频解码和视频输出不在当前版本范围内。
 
 ## 3. 非目标
 
@@ -24,7 +24,7 @@
 
 | 输入 | 类型 | 默认值与约束 |
 |---|---|---|
-| site | COMBO | `civitai.com`、`civitai.red`；默认 `civitai.com` |
+| site | COMBO | `civitai.com`、`civitai.red`、`从本地获取`；默认 `civitai.com` |
 | prompt_query | STRING | 可为空，最多 256 个字符 |
 | period | COMBO | `Day`、`Week`、`Month`、`AllTime`；默认 `Day` |
 | media_type | COMBO | `image`、`video`；默认 `image` |
@@ -32,7 +32,7 @@
 | sfw | BOOLEAN | 默认 true；不能绕过站点限制 |
 | refresh | BOOLEAN | 默认 false；只刷新当前查询缓存 |
 
-可选控件为 `source`（`static`/`civitai`，默认 `static`，仅开发用途）、`page`（从 0 开始的页码）和 `only_with_prompt`（仅显示已检测到提示词的图片）。当前版本没有任何 ComfyUI 输出端口；提示词、metadata 和来源信息通过画廊交互查看。
+可选控件为 `source`（`static`/`civitai`，默认 `static`，仅开发用途）、`page`（从 0 开始的页码）和 `only_with_prompt`（仅显示已检测到提示词的图片）。选择“从本地获取”时只读取 `output/ty-node` 直接子目录中的图片，按修改时间倒序分页，并通过 `/view` URL 展示。当前版本没有任何 ComfyUI 输出端口；提示词、metadata 和来源信息通过画廊交互查看。
 
 内部 metadata 解析仍可区分 A/B/C 类，但当前版本只用于提示词状态和后续扩展，不在节点输出端口暴露，也绝不执行任何 workflow。不伪造缺失字段。
 

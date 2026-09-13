@@ -60,3 +60,8 @@ def test_node_local_site_reads_downloaded_gallery_without_civitai(monkeypatch):
     info = json.loads(out['ui']['civitai_info'])
     assert info['source'] == 'local'
     assert info['has_next'] is False
+
+
+def test_node_exposes_local_source_label():
+    options = nodes.TyHitImageNode.INPUT_TYPES()['required']['site'][0]
+    assert '从本地获取' in options

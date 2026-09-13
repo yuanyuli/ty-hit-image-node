@@ -84,7 +84,7 @@ class TyHitImageNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "site": (['civitai.com','civitai.red','local'], {'default':'civitai.com'}), "prompt_query": ('STRING', {'default':'','multiline':False}),
+            "site": (['civitai.com','civitai.red','从本地获取'], {'default':'civitai.com'}), "prompt_query": ('STRING', {'default':'','multiline':False}),
             "period": (['Day','Week','Month','AllTime'], {'default':'Day'}),
             "count": ('INT', {'default':9,'min':1,'max':MAX_COUNT}),
             "sfw": ('BOOLEAN', {'default':True})}, "optional": {
@@ -109,7 +109,7 @@ class TyHitImageNode:
         page_index = int(page or 0)
         stale_state = {'used': False}
 
-        if site == 'local':
+        if site in ('local', '从本地获取'):
             local_page = list_local_images(
                 _comfy_output_root(), count=count, page=page_index,
                 query=prompt_query or '', only_with_prompt=bool(only_with_prompt),

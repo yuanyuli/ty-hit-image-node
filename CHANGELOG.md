@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- 新增“从本地获取”站点选项，可浏览 `output/ty-node/` 中已下载的历史图片。
 - 继续验证最新 ComfyUI 前端生命周期和 Civitai API 变化。
 - 收集公开 Beta 用户反馈，优先修复分页、提示词识别和下载兼容问题。
 

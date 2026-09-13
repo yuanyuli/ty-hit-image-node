@@ -9,6 +9,7 @@
 ## 能做什么
 
 - 从 `civitai.com` 或 `civitai.red` 查询公开图片。
+- 从“从本地获取”读取曾下载到 `output/ty-node/` 的历史图片，按修改时间倒序浏览。
 - 按关键词、时间范围、SFW 和排序条件筛选。
 - 在节点内以网格浏览当前页，使用“下一页（执行）”继续读取结果。
 - 用角标区分“有提示词”和“无提示词”。
@@ -90,13 +91,15 @@ cmd /c mklink /J "$ComfyRoot\custom_nodes\ComfyUI-TyHitImageNode" "$NodeRoot"
 
 | 控件 | 说明 |
 | --- | --- |
-| 站点 | `civitai.com` 或 `civitai.red` |
+| 站点 | `civitai.com`、`civitai.red` 或“从本地获取” |
 | 关键词 | Civitai 图片搜索关键词，可为空 |
 | 周期 | Day、Week、Month、AllTime |
 | 数量 | 每页请求和显示的上限，范围 1–9 |
 | SFW | 将查询限制为站点允许的安全内容；不会绕过站点限制 |
 | 排序 | Most Reactions、Most Comments、Most Downloaded、Newest、Oldest |
 | 仅显示有提示词 | 只展示已检测到正向提示词的结果；如果当前页不足，节点会继续读取后续页 |
+
+选择“从本地获取”后，节点只读取 `<ComfyUI>/output/ty-node/` 目录中的历史图片，不访问 Civitai。结果按文件修改时间倒序分页；关键词可匹配文件名或图片内嵌 prompt。本地图片已经在输出目录中，因此不会显示重复下载按钮。
 
 提示词来源可能是 Civitai API metadata、公开详情页状态数据或图片内嵌 metadata。工作流 JSON、模型信息或任意非提示词字段不会被冒充为正向提示词。角标表示“检测到正向提示词”，不代表提示词质量，也不保证负面提示词存在。
 
