@@ -33,6 +33,8 @@ def test_site_widget_supports_right_click_cycle():
     assert "function enumWidgetAt" in source
     assert "installCanvasEnumCycling" in source
     assert "addEventListener(\"contextmenu\"" in source
+    assert "document.addEventListener(\"contextmenu\"" in source
+    assert "graph_mouse" in source
     assert "preventDefault();" in source
 
 
@@ -48,3 +50,18 @@ def test_details_dialog_offers_workflow_copy_separately_from_prompt():
     assert "复制工作流" in source
     assert "JSON.stringify(item.workflow, null, 2)" in source
     assert "has_workflow" in source
+
+
+def test_gallery_restores_after_workflow_configuration():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "const previousConfigure = node.onConfigure;" in source
+    assert "node.onConfigure = function" in source
+    assert "restoreSavedGallery" in source
+
+
+def test_gallery_snapshot_is_isolated_per_workflow_and_node():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "const galleryStorageKey = ()" in source
+    assert "location.hash" in source
+    assert "localStorage.setItem(galleryStorageKey()" in source
+    assert "localStorage.getItem(galleryStorageKey()" in source

@@ -91,32 +91,43 @@ function enumWidgetAt(node, y) {
 
 function installCanvasEnumCycling(node) {
   const canvas = app.canvasEl || app.canvas?.canvas || app.canvas?.el || app.canvas?.canvasEl;
-  if (!canvas || typeof canvas.addEventListener !== "function") return;
-  const nodes = canvas.__tyHitEnumNodes || (canvas.__tyHitEnumNodes = new Set());
+  if (!canvas || typeof document?.addEventListener !== "function") return;
+  const registry = globalThis.__tyHitEnumCycle || (globalThis.__tyHitEnumCycle = {nodes: new Set(), handler: null});
+  const nodes = registry.nodes;
   nodes.add(node);
-  if (canvas.__tyHitEnumCycle) return;
+  if (registry.handler) return;
   const handler = (event) => {
-    if (event.button !== 2 || (typeof canvas.contains === "function" && !canvas.contains(event.target))) return;
-    const rect = canvas.getBoundingClientRect();
-    const scale = Number(app.canvas?.ds?.scale) || 1;
-    const offset = app.canvas?.ds?.offset || [0, 0];
-    const x = (event.clientX - rect.left) / scale - Number(offset[0] || 0);
-    const y = (event.clientY - rect.top) / scale - Number(offset[1] || 0);
-    const targetNode = [...nodes].reverse().find((candidate) => {
+    if (event.button !== 2) return;
+    if (canvas && typeof canvas.contains === "function" && !canvas.contains(event.target)) return;
+    const graphMouse = app.canvas?.graph_mouse;
+    let x = Number(graphMouse?.[0]);
+    let y = Number(graphMouse?.[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      const rect = canvas?.getBoundingClientRect?.();
+      const scale = Number(app.canvas?.ds?.scale) || 1;
+      const offset = app.canvas?.ds?.offset || [0, 0];
+      if (!rect) return;
+      x = (event.clientX - rect.left) / scale - Number(offset[0] || 0);
+      y = (event.clientY - rect.top) / scale - Number(offset[1] || 0);
+    }
+    const graph = app.graph || app.canvas?.graph;
+    let targetNode = graph?.getNodeOnPos?.(x, y, 5);
+    if (!targetNode) targetNode = [...nodes].reverse().filter((candidate) => !graph || candidate.graph === graph).find((candidate) => {
       const [left, top] = candidate.pos || [0, 0];
       const [width, height] = candidate.size || [0, 0];
       return x >= left && x <= left + width && y >= top && y <= top + height;
     });
-    if (!targetNode) return;
+    if (!targetNode || !nodes.has(targetNode)) return;
     const widget = enumWidgetAt(targetNode, y - Number(targetNode.pos?.[1] || 0));
-    if (!widget || !cycleEnumWidget(widget)) return;
+    if (!widget || (targetNode._tyHitContextCycleAt && performance.now() - targetNode._tyHitContextCycleAt < 300) || !cycleEnumWidget(widget)) return;
+    targetNode._tyHitContextCycleAt = performance.now();
     event.preventDefault();
     event.stopImmediatePropagation();
     targetNode.onWidgetChanged?.(widget.name, widget.value, undefined, widget);
     targetNode.setDirtyCanvas?.(true, true);
   };
-  canvas.addEventListener("contextmenu", handler, true);
-  canvas.__tyHitEnumCycle = {handler, nodes};
+  document.addEventListener("contextmenu", handler, true);
+  registry.handler = handler;
 }
 
 function workflowText(item) {
@@ -140,14 +151,19 @@ function openDialog(item) {
 
 app.registerExtension({name: "ty.hit.image.node", nodeCreated(node) {
   if (!NODE_TYPES.has(node.comfyClass)) return; node.properties = node.properties || {}; const findWidget = (name) => node.widgets?.find((widget) => widget.name === name); const setHidden = (name) => { const widget = findWidget(name); if (!widget) return; widget.hidden = true; widget.computeSize = () => [0, -4]; if (widget.element) widget.element.style.display = "none"; }; setHidden("page"); setHidden("refresh");
-  installCanvasEnumCycling(node); const previousMouseDown = node.onMouseDown; node.onMouseDown = function(event, pos, canvas) { if (event?.button === 2) { const target = enumWidgetAt(node, Number(pos?.[1])); if (target && cycleEnumWidget(target)) { event.preventDefault?.(); event.stopPropagation?.(); node.onWidgetChanged?.(target.name, target.value, undefined, target); node.setDirtyCanvas?.(true, true); return true; } } return previousMouseDown?.apply(this, arguments); };
+  installCanvasEnumCycling(node); const previousMouseDown = node.onMouseDown; node.onMouseDown = function(event, pos, canvas) { if (event?.button === 2) { const target = enumWidgetAt(node, Number(pos?.[1])); if (target && cycleEnumWidget(target)) { node._tyHitContextCycleAt = performance.now(); event.preventDefault?.(); event.stopPropagation?.(); node.onWidgetChanged?.(target.name, target.value, undefined, target); node.setDirtyCanvas?.(true, true); return true; } } return previousMouseDown?.apply(this, arguments); };
   const resetOnChange = new Set(["site", "prompt_query", "period", "count", "sfw", "sort", "only_with_prompt", "source"]); const originalWidgetCallbacks = new WeakMap(); (node.widgets || []).forEach((widget) => { if (!resetOnChange.has(widget.name) || typeof widget.callback !== "function") return; const original = widget.callback; originalWidgetCallbacks.set(widget, original); widget.callback = function(value) { const page = findWidget("page"); if (page) page.value = 0; return original.apply(this, arguments); }; });
   const previousWidgetChanged = node.onWidgetChanged; node.onWidgetChanged = function(name, value, oldValue) { if (previousWidgetChanged) previousWidgetChanged.apply(this, arguments); if (resetOnChange.has(name)) { const page = findWidget("page"); if (page) page.value = 0; } };
   const root = document.createElement("div"); root.className = "ty-hit-gallery"; const toolbar = document.createElement("div"); toolbar.className = "ty-hit-toolbar"; const loadButton = document.createElement("button"); loadButton.textContent = "加载灵感图"; const refreshButton = document.createElement("button"); refreshButton.textContent = "刷新结果"; const nextButton = document.createElement("button"); nextButton.textContent = "下一页"; const allDownloadButton = document.createElement("button"); allDownloadButton.textContent = "下载当前页"; const status = document.createElement("span"); status.className = "ty-hit-status"; status.textContent = "尚未加载"; toolbar.append(loadButton, refreshButton, nextButton, allDownloadButton, status); const grid = document.createElement("div"); grid.className = "ty-hit-grid"; root.append(toolbar, grid); node._tyHitRoot = root; node._tyHitGrid = grid; node._tyHitStatus = status;
   const setStatus = (message, kind = "") => { status.textContent = message; status.style.color = kind === "error" ? "#e66" : kind === "ok" ? "#6dca91" : ""; }; const setBusy = (busy) => { loadButton.disabled = refreshButton.disabled = nextButton.disabled = allDownloadButton.disabled = busy; }; const queue = (mode) => { const page = findWidget("page"); const refresh = findWidget("refresh"); if ((mode === "next" || mode === "load" || mode === "refresh") && page) page.value = mode === "next" ? (Number(page.value) || 0) + 1 : 0; if (refresh && (mode === "load" || mode === "refresh")) refresh.value = mode === "refresh"; setStatus(mode === "next" ? "正在加载下一页…" : mode === "refresh" ? "正在刷新第一页…" : "正在加载第一页…"); setBusy(true); if (app.queuePrompt) app.queuePrompt(); };
   loadButton.onclick = () => queue("load"); refreshButton.onclick = () => queue("refresh"); nextButton.onclick = () => queue("next"); allDownloadButton.onclick = async () => { const items = node._tyHitItems || []; if (!items.length) return notify("当前页没有图片", "error"); setBusy(true); setStatus(`正在下载 ${items.length} 张…`); let success = 0; for (const item of items) if (await downloadItem(item)) success += 1; setBusy(false); setStatus(`已下载 ${success}/${items.length} 张`, success === items.length ? "ok" : "error"); };
-  function render(items, info = {}) { grid.style.maxHeight = Math.max(120, (node.size?.[1] || 420) - 105) + "px"; const safeItems = Array.isArray(items) ? items.filter((item) => item && item.url) : []; const localMode = info.source === "local" || safeItems.some(isLocalItem); allDownloadButton.style.display = localMode ? "none" : ""; node._tyHitItems = safeItems; node.properties.ty_hit_gallery = safeItems.map((item) => ({...item})); grid.replaceChildren(); if (!safeItems.length) { const empty = document.createElement("div"); empty.className = "ty-hit-empty"; empty.textContent = info.error || "没有符合条件的图片"; grid.appendChild(empty); setStatus(info.error ? "加载失败" : "暂无结果", info.error ? "error" : ""); } else { safeItems.forEach((item) => { const card = document.createElement("div"); card.className = "ty-hit-card"; card.tabIndex = 0; const img = document.createElement("img"); img.src = item.url; img.alt = `${localMode ? "本地" : "Civitai"} ${item.id || "image"}`; img.onerror = () => { img.style.opacity = ".35"; }; img.onclick = () => openDialog(item); const badge = document.createElement("button"); badge.className = `ty-hit-badge${item.has_prompt ? "" : " empty"}`; badge.textContent = item.has_prompt ? "提示词 ✓" : "无提示词"; badge.title = "打开详情"; badge.onclick = (event) => { event.stopPropagation(); openDialog(item); }; const actions = document.createElement("div"); actions.className = "ty-hit-actions"; const download = document.createElement("button"); download.textContent = "下载"; download.onclick = (event) => { event.stopPropagation(); downloadItem(item, download); }; const details = document.createElement("button"); details.textContent = "详情"; details.onclick = (event) => { event.stopPropagation(); openDialog(item); }; if (!isLocalItem(item)) actions.append(download); actions.append(details); card.append(img, badge, actions); grid.appendChild(card); }); const page = Number(findWidget("page")?.value || 0) + 1; const sourceLabel = localMode ? "本地历史 · " : info.stale ? "缓存 · " : ""; setStatus(`${sourceLabel}第 ${page} 页 · ${safeItems.length} 张`, "ok"); } setBusy(false); if (node.setDirtyCanvas) node.setDirtyCanvas(true, true); }
-  const saved = node.properties.ty_hit_gallery; if (Array.isArray(saved) && saved.length) render(saved, {stale: true}); if (node.addDOMWidget) node._tyHitWidget = node.addDOMWidget("ty_hit_preview", "preview", root, {serialize: false}); const previousExecuted = node.onExecuted; node.onExecuted = (output) => { if (previousExecuted) previousExecuted.call(node, output); const raw = output?.civitai || output?.output?.civitai || output?.output?.ui?.civitai || []; let info = output?.civitai_info || output?.output?.civitai_info || {}; if (typeof info === "string") { try { info = JSON.parse(info); } catch (_) {} } const payload = Array.isArray(raw) ? raw : (raw?.items || []); render(payload, info); }; const previousError = node.onExecutionError; node.onExecutionError = (error) => { if (previousError) previousError.call(node, error); render([], {error: error?.message || "节点执行失败"}); };
+  const galleryStorageKey = () => { const workflowId = String(location.hash || "").replace(/^#/, "") || "default"; return `ty-hit-image-node.gallery.${workflowId}.${node.id}`; };
+  const readStoredGallery = () => { try { const saved = JSON.parse(localStorage.getItem(galleryStorageKey()) || "null"); return Array.isArray(saved) ? saved : []; } catch (_) { return []; } };
+  const persistGallery = (items) => { try { localStorage.setItem(galleryStorageKey(), JSON.stringify(items)); } catch (_) {} };
+  function render(items, info = {}) { grid.style.maxHeight = Math.max(120, (node.size?.[1] || 420) - 105) + "px"; const safeItems = Array.isArray(items) ? items.filter((item) => item && item.url) : []; const localMode = info.source === "local" || safeItems.some(isLocalItem); allDownloadButton.style.display = localMode ? "none" : ""; node._tyHitItems = safeItems; node.properties.ty_hit_gallery = safeItems.map((item) => ({...item})); if (!info.error || safeItems.length) persistGallery(node.properties.ty_hit_gallery); grid.replaceChildren(); if (!safeItems.length) { const empty = document.createElement("div"); empty.className = "ty-hit-empty"; empty.textContent = info.error || "没有符合条件的图片"; grid.appendChild(empty); setStatus(info.error ? "加载失败" : "暂无结果", info.error ? "error" : ""); } else { safeItems.forEach((item) => { const card = document.createElement("div"); card.className = "ty-hit-card"; card.tabIndex = 0; const img = document.createElement("img"); img.src = item.url; img.alt = `${localMode ? "本地" : "Civitai"} ${item.id || "image"}`; img.onerror = () => { img.style.opacity = ".35"; }; img.onclick = () => openDialog(item); const badge = document.createElement("button"); badge.className = `ty-hit-badge${item.has_prompt ? "" : " empty"}`; badge.textContent = item.has_prompt ? "提示词 ✓" : "无提示词"; badge.title = "打开详情"; badge.onclick = (event) => { event.stopPropagation(); openDialog(item); }; const actions = document.createElement("div"); actions.className = "ty-hit-actions"; const download = document.createElement("button"); download.textContent = "下载"; download.onclick = (event) => { event.stopPropagation(); downloadItem(item, download); }; const details = document.createElement("button"); details.textContent = "详情"; details.onclick = (event) => { event.stopPropagation(); openDialog(item); }; if (!isLocalItem(item)) actions.append(download); actions.append(details); card.append(img, badge, actions); grid.appendChild(card); }); const page = Number(findWidget("page")?.value || 0) + 1; const sourceLabel = localMode ? "本地历史 · " : info.stale ? "缓存 · " : ""; setStatus(`${sourceLabel}第 ${page} 页 · ${safeItems.length} 张`, "ok"); } setBusy(false); if (node.setDirtyCanvas) node.setDirtyCanvas(true, true); }
+  const restoreSavedGallery = () => { const fromProperties = node.properties?.ty_hit_gallery; const saved = Array.isArray(fromProperties) && fromProperties.length ? fromProperties : readStoredGallery(); if (saved.length) render(saved, {stale: true}); };
+  const previousConfigure = node.onConfigure; node.onConfigure = function() { const result = previousConfigure?.apply(this, arguments); restoreSavedGallery(); queueMicrotask(restoreSavedGallery); setTimeout(restoreSavedGallery, 50); return result; };
+  restoreSavedGallery(); setTimeout(restoreSavedGallery, 0); setTimeout(restoreSavedGallery, 100); if (node.addDOMWidget) node._tyHitWidget = node.addDOMWidget("ty_hit_preview", "preview", root, {serialize: false}); const previousExecuted = node.onExecuted; node.onExecuted = (output) => { if (previousExecuted) previousExecuted.call(node, output); const raw = output?.civitai || output?.output?.civitai || output?.output?.ui?.civitai || []; let info = output?.civitai_info || output?.output?.civitai_info || {}; if (typeof info === "string") { try { info = JSON.parse(info); } catch (_) {} } const payload = Array.isArray(raw) ? raw : (raw?.items || []); render(payload, info); }; const previousError = node.onExecutionError; node.onExecutionError = (error) => { if (previousError) previousError.call(node, error); render([], {error: error?.message || "节点执行失败"}); };
   const previousResize = node.onResize; node.onResize = function(size) { if (previousResize) previousResize.apply(this, arguments); if (node._tyHitGrid) node._tyHitGrid.style.maxHeight = Math.max(120, (node.size?.[1] || 420) - 105) + "px"; };
 }});
 
