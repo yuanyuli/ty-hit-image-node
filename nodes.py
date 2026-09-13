@@ -78,7 +78,9 @@ def _gallery_item(item, site):
         prompt_status = 'unavailable'
     elif embedded.get('prompt'):
         normalized.prompt = embedded['prompt']
-        normalized.negative_prompt = embedded['negativePrompt']
+        normalized.negative_prompt = embedded.get('negativePrompt') or embedded.get('negative_prompt') or ''
+        if not isinstance(normalized.negative_prompt, str):
+            normalized.negative_prompt = ''
         meta = {**meta, **embedded}
         prompt_status = 'page'
     elif not normalized.prompt:

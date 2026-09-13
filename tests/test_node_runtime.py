@@ -96,3 +96,19 @@ def test_gallery_item_does_not_treat_hidden_prompt_workflow_as_positive_prompt(m
     assert item['workflow']['version'] == 1
     assert 'prompt' not in item['metadata']
     assert 'negativePrompt' not in item['metadata']
+
+
+def test_gallery_item_accepts_page_prompt_without_negative_prompt(monkeypatch):
+    class FakeClient:
+        def page_metadata(self, site, image_id):
+            return {'prompt': 'a real prompt'}
+
+    monkeypatch.setattr(nodes, 'CivitaiClient', FakeClient)
+    item = nodes._gallery_item({
+        'id': 999999991,
+        'url': 'https://image.civitai.com/999999991.png',
+        'meta': {},
+    }, 'civitai.com')
+
+    assert item['prompt'] == 'a real prompt'
+    assert item['negative_prompt'] == ''
