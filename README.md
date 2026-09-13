@@ -1,6 +1,8 @@
 # ty-hit-image-node
 
-一个面向 ComfyUI 的 Civitai 灵感图浏览节点。它把 Civitai 的公开图片结果放进 ComfyUI 节点中，支持分页浏览、提示词状态识别、提示词复制、原帖查看和安全下载。
+`ty-hit-image-node` 是一个 **ComfyUI 自定义节点**，用于在 ComfyUI 画布中浏览 Civitai 公开图片。
+
+它把 Civitai 的图片搜索、分页浏览、提示词识别、详情查看、提示词复制和安全下载集中到一个节点里。安装到 `ComfyUI/custom_nodes/` 并重启 ComfyUI 后，就可以在节点搜索中找到 `ty-hit-image-node`。
 
 > 当前版本是纯展示节点：它没有任何 ComfyUI 输出端口，也不会把图片、提示词或 metadata 传给下游节点。
 
