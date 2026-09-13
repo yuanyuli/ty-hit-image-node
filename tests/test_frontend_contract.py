@@ -18,3 +18,9 @@ def test_download_is_skipped_for_local_items():
     # Keep the local branch in the card renderer so a local file is never
     # sent to the Civitai-only download endpoint.
     assert "if (!isLocalItem(item)) actions.append(download);" in source
+
+
+def test_details_dialog_offers_download_for_remote_items_only():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "const dialogDownload = document.createElement(\"button\");" in source
+    assert "if (!local) actions.append(dialogDownload);" in source
