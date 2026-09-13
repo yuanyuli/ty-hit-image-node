@@ -1,5 +1,7 @@
 param(
-  [string]$ComfyRoot = "E:\ComfyUI_windows_portable-G314\ComfyUI"
+  [Parameter(Mandatory=$true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$ComfyRoot
 )
 $python = Join-Path (Split-Path $ComfyRoot) "python_embeded\python.exe"
 $main = Join-Path $ComfyRoot "main.py"

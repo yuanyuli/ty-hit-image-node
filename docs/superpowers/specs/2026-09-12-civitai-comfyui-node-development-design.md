@@ -105,7 +105,9 @@ ComfyUI-Civitai-Inspiration/
 节点仓库与 ComfyUI 分离。开发时使用 Windows junction 接入：
 
 ```powershell
-cmd /c mklink /J "E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes\ComfyUI-Civitai-Inspiration" "<节点仓库路径>"
+$ComfyRoot = "你的 ComfyUI 路径"
+$NodeRoot = "你的节点仓库路径"
+cmd /c mklink /J "$ComfyRoot\custom_nodes\ComfyUI-Civitai-Inspiration" "$NodeRoot"
 ```
 
 修改 Python 节点代码后重启 ComfyUI 后端；修改前端资源后刷新浏览器。节点不依赖复制到 ComfyUI 目录，junction 只提供扫描入口。

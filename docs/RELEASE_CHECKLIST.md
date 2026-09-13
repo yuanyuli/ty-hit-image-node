@@ -13,7 +13,7 @@
 ## 自动化验证
 
 ```powershell
-cd D:\work_station\ty-comfyui-node\civitai-inspiration
+cd <节点仓库目录>
 uv run pytest -q
 node --check web\civitai_inspiration.js
 ```

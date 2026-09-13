@@ -257,7 +257,7 @@ Expected: 仅在集成功能尚未实现时失败。
 
 - [ ] **Step 3: 完成 README 和 junction 脚本**
 
-README 写明独立仓库、环境变量、安装方式、缓存目录、重启要求、节点输入输出和限制；脚本默认目标为 `E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes`，但允许显式覆盖。
+README 写明独立仓库、环境变量、安装方式、缓存目录、重启要求、节点输入输出和限制；脚本通过参数接收 ComfyUI 根目录，不内置开发者机器路径。
 
 - [ ] **Step 4: 运行全量测试并做本地加载检查**
 

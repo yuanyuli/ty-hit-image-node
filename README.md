@@ -48,9 +48,10 @@
 在 ComfyUI 的 `custom_nodes` 目录执行：
 
 ```powershell
-cd E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes
+$ComfyRoot = "你的 ComfyUI 路径"
+cd "$ComfyRoot\custom_nodes"
 git clone <你的 GitHub 仓库地址> ComfyUI-TyHitImageNode
-E:\ComfyUI_windows_portable-G314\python_embeded\python.exe -m pip install -r ComfyUI-TyHitImageNode\requirements.txt
+& "$ComfyRoot\python_embeded\python.exe" -m pip install -r ComfyUI-TyHitImageNode\requirements.txt
 ```
 
 Linux/macOS 示例：
@@ -68,7 +69,9 @@ python3 -m pip install -r ComfyUI-TyHitImageNode/requirements.txt
 开发时可以使用 junction/symlink 指向源码，避免复制仓库：
 
 ```powershell
-cmd /c mklink /J "E:\ComfyUI_windows_portable-G314\ComfyUI\custom_nodes\ComfyUI-TyHitImageNode" "D:\work_station\ty-comfyui-node\civitai-inspiration"
+$ComfyRoot = "你的 ComfyUI 路径"
+$NodeRoot = "你的节点仓库路径"
+cmd /c mklink /J "$ComfyRoot\custom_nodes\ComfyUI-TyHitImageNode" "$NodeRoot"
 ```
 
 仓库中的 `scripts/restart_comfyui.ps1` 仅服务于本地开发。公开用户不需要运行它，也不需要安装仓库的开发依赖。
@@ -151,7 +154,8 @@ Python 修改需要重启 ComfyUI 后端；前端 JavaScript 修改需要浏览�
 所有节点共用工作区的 uv 环境：
 
 ```powershell
-cd D:\work_station\ty-comfyui-node
+$WorkspaceRoot = "你的节点工作区路径"
+cd $WorkspaceRoot
 uv sync
 uv run pytest -q
 ```
