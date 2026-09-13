@@ -28,7 +28,7 @@ def test_lists_only_images_inside_ty_node_with_view_urls(tmp_path):
     assert len(page.items) == 1
     item = page.items[0]
     assert item["id"] == "local-new.png"
-    assert item["url"] == "/view?filename=ty-node/new.png&type=output"
+    assert item["url"] == "/view?filename=new.png&subfolder=ty-node&type=output"
     assert item["has_prompt"] is True
     assert item["prompt"] == "a cat"
     assert item["prompt_status"] == "embedded"

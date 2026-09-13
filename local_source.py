@@ -67,10 +67,11 @@ def _item(root: Path, path: Path) -> dict:
     prompt, negative, metadata = _metadata(path)
     # /view performs its own output directory validation. Returning a relative
     # path here keeps the host filesystem path private from the browser.
-    view_name = quote(f"ty-node/{name}", safe="/")
+    view_name = quote(name, safe="")
+    view_subfolder = quote("ty-node", safe="")
     return {
         "id": f"local-{name}",
-        "url": f"/view?filename={view_name}&type=output",
+        "url": f"/view?filename={view_name}&subfolder={view_subfolder}&type=output",
         "source_url": None,
         "local": True,
         "source": "local",
