@@ -11,6 +11,8 @@ except ImportError:
     TyHitImageNode = _load("nodes").TyHitImageNode
     CivitaiInspirationLoader = _load("nodes").CivitaiInspirationLoader
 
+__version__ = "0.1.0"
+
 NODE_CLASS_MAPPINGS = {"TyHitImageNode": TyHitImageNode, "CivitaiInspirationLoader": CivitaiInspirationLoader}
 NODE_DISPLAY_NAME_MAPPINGS = {"TyHitImageNode": "ty-hit-image-node", "CivitaiInspirationLoader": "ty-hit-image-node (兼容)"}
 
