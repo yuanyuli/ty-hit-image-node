@@ -11,3 +11,12 @@ def test_normalize_item_ignores_malformed_metadata():
     assert result.prompt == ""
     assert result.negative_prompt == ""
     assert result.classification == "C"
+
+
+def test_normalize_item_groups_model_and_lora_resources():
+    result = normalize_item({"id": 3, "meta": {"resources": [
+        {"type": "model", "name": "Base XL", "hash": "abc123"},
+        {"type": "lora", "name": "Detail Style", "hash": "def456"},
+    ]}})
+    assert result.models == [{"name": "Base XL", "hash": "abc123"}]
+    assert result.loras == [{"name": "Detail Style", "hash": "def456"}]

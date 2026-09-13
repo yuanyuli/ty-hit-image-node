@@ -24,3 +24,17 @@ def test_details_dialog_offers_download_for_remote_items_only():
     source = FRONTEND.read_text(encoding="utf-8")
     assert "const dialogDownload = document.createElement(\"button\");" in source
     assert "if (!local) actions.append(dialogDownload);" in source
+
+
+def test_site_widget_supports_right_click_cycle():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "function cycleEnumWidget" in source
+    assert "event?.button === 2" in source
+    assert "enumWidgets" in source
+
+
+def test_details_dialog_includes_model_and_lora_sections():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "function resourceLabel" in source
+    assert "模型" in source
+    assert "LoRA" in source

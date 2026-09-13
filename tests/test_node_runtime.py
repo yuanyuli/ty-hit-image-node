@@ -65,3 +65,11 @@ def test_node_local_site_reads_downloaded_gallery_without_civitai(monkeypatch):
 def test_node_exposes_local_source_label():
     options = nodes.TyHitImageNode.INPUT_TYPES()['required']['site'][0]
     assert '从本地获取' in options
+
+
+def test_gallery_item_exposes_models_and_loras():
+    item = nodes._gallery_item({"id": 9, "url": "https://image.civitai.com/9.png", "meta": {
+        "resources": [{"type": "model", "name": "Base XL"}, {"type": "lora", "name": "Detail"}],
+    }}, "civitai.com")
+    assert item["models"] == [{"name": "Base XL"}]
+    assert item["loras"] == [{"name": "Detail"}]

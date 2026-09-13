@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from image_loader import read_metadata
+from metadata_parser import normalize_item
 
 
 IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
@@ -65,6 +66,7 @@ def _metadata(path: Path) -> tuple[str, str, dict]:
 def _item(root: Path, path: Path) -> dict:
     name = path.name
     prompt, negative, metadata = _metadata(path)
+    normalized = normalize_item({"meta": metadata, "prompt": prompt})
     # /view performs its own output directory validation. Returning a relative
     # path here keeps the host filesystem path private from the browser.
     view_name = quote(name, safe="")
@@ -79,6 +81,8 @@ def _item(root: Path, path: Path) -> dict:
         "prompt": prompt,
         "prompt_status": "embedded" if prompt else "unavailable",
         "negative_prompt": negative,
+        "models": normalized.models or [],
+        "loras": normalized.loras or [],
         "classification": "B" if prompt or metadata else "C",
         "metadata": metadata,
         "author": None,

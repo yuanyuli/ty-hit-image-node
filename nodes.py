@@ -75,6 +75,7 @@ def _gallery_item(item, site):
             'has_prompt': bool(normalized.prompt.strip()), 'prompt': normalized.prompt,
             'prompt_status': prompt_status,
             'negative_prompt': normalized.negative_prompt, 'classification': normalized.classification,
+            'models': normalized.models or [], 'loras': normalized.loras or [],
             'metadata': metadata, 'author': author,
             'created_at': item.get('createdAt') or item.get('created_at'),
             'nsfw': bool(item.get('nsfw', False))}
