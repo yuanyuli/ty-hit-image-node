@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Civitai 服务问题
+    url: https://civitai.com/
+    about: Civitai API、账号、内容权限和站点故障请先查看 Civitai 官方状态与服务说明。

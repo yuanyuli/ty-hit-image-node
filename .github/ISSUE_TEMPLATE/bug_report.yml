@@ -1,0 +1,52 @@
+name: Bug 报告
+description: 报告可复现的节点问题
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请搜索已有 issue。请删除 API Key、Cookie、私人图片和本地敏感路径。
+  - type: input
+    id: node-version
+    attributes:
+      label: 节点版本或 commit
+      placeholder: "例如 0.1.0 / abc1234"
+    validations:
+      required: true
+  - type: input
+    id: comfyui-version
+    attributes:
+      label: ComfyUI 版本
+      placeholder: "例如 commit、tag 或版本页面显示的版本"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 操作系统和浏览器
+      placeholder: "例如 Windows 11 + Chrome 140"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请说明输入参数、点击的按钮和预期/实际结果。
+      placeholder: |
+        1. 添加 ty-hit-image-node
+        2. 设置关键词……
+        3. 点击……
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: ComfyUI 日志
+      description: 请贴出相关日志，并先移除密钥、Cookie 和敏感路径。
+      render: text
+  - type: textarea
+    id: workflow
+    attributes:
+      label: 其他信息
+      description: 可附最小 workflow、截图或复现链接；请先脱敏。

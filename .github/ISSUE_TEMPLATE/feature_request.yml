@@ -1,0 +1,28 @@
+name: 功能建议
+description: 提议与 Civitai 灵感浏览相关的改进
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本节点当前定位为 Civitai 图片纯展示节点。涉及新平台、登录态、模型下载或工作流执行的建议，需要同时说明合规和产品边界。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 请描述当前操作中的具体困难。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 请描述希望看到的行为和用户动线。
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案和影响
+      description: 是否会影响现有 workflow、缓存、下载安全或 Civitai 服务条款？
