@@ -7,11 +7,21 @@ from civitai_client import CivitaiClient, QueryParams, ApiError
 from metadata_parser import normalize_item
 from image_loader import read_metadata
 from cache import Cache
+from local_source import list_local_images
 
 SORT_OPTIONS = ['Most Reactions', 'Most Comments', 'Most Downloaded', 'Newest', 'Oldest']
 MAX_COUNT = 9
 NODE_VERSION = 'v7'
 _META_CACHE = {}
+
+
+def _comfy_output_root():
+    """返回 ComfyUI output 根目录；脱离 ComfyUI 测试时使用本地回退目录。"""
+    try:
+        import folder_paths
+        return folder_paths.get_output_directory()
+    except Exception:
+        return Path(__file__).resolve().parent / 'output'
 
 def _embedded_prompt(url):
     if not isinstance(url, str) or not url.startswith('https://'):
@@ -74,7 +84,7 @@ class TyHitImageNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "site": (['civitai.com','civitai.red'], {'default':'civitai.com'}), "prompt_query": ('STRING', {'default':'','multiline':False}),
+            "site": (['civitai.com','civitai.red','local'], {'default':'civitai.com'}), "prompt_query": ('STRING', {'default':'','multiline':False}),
             "period": (['Day','Week','Month','AllTime'], {'default':'Day'}),
             "count": ('INT', {'default':9,'min':1,'max':MAX_COUNT}),
             "sfw": ('BOOLEAN', {'default':True})}, "optional": {
@@ -98,6 +108,22 @@ class TyHitImageNode:
         cache = Cache(Path(__file__).resolve().parent/'.cache')
         page_index = int(page or 0)
         stale_state = {'used': False}
+
+        if site == 'local':
+            local_page = list_local_images(
+                _comfy_output_root(), count=count, page=page_index,
+                query=prompt_query or '', only_with_prompt=bool(only_with_prompt),
+            )
+            info = {
+                'page': local_page.page, 'count': len(local_page.items),
+                'requested_count': count, 'next_cursor': None,
+                'has_next': local_page.has_next, 'sort': sort,
+                'source': 'local', 'stale': False,
+            }
+            return {'ui': {
+                'civitai': local_page.items,
+                'civitai_info': json.dumps(info, ensure_ascii=False),
+            }}
 
         def page_key(index):
             payload = ['v7', site, (prompt_query or '')[:256], period, count, bool(sfw), sort, source, index]

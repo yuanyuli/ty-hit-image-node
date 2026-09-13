@@ -35,3 +35,28 @@ def test_node_uses_cursor_pages_and_prompt_filter(tmp_path, monkeypatch):
     assert [item['id'] for item in payload] == [2, 3]
     assert calls == [None, 'cursor-1']
     assert json.loads(out['ui']['civitai_info'])['has_next'] is False
+
+
+def test_node_local_site_reads_downloaded_gallery_without_civitai(monkeypatch):
+    local_items = [{
+        'id': 'local-example.png', 'url': '/view?filename=ty-node/example.png&type=output',
+        'source_url': None, 'has_prompt': True, 'prompt': 'a cat',
+        'prompt_status': 'embedded', 'negative_prompt': '', 'metadata': {},
+    }]
+
+    class LocalPage:
+        items = local_items
+        page = 0
+        has_next = False
+        count = 1
+
+    monkeypatch.setattr(nodes, 'list_local_images', lambda *args, **kwargs: LocalPage())
+    monkeypatch.setattr(nodes, '_comfy_output_root', lambda: 'output-root')
+    monkeypatch.setattr(nodes, 'CivitaiClient', lambda: (_ for _ in ()).throw(AssertionError('network called')))
+
+    out = nodes.TyHitImageNode().load('local', '', 'Day', 1)
+
+    assert out['ui']['civitai'] == local_items
+    info = json.loads(out['ui']['civitai_info'])
+    assert info['source'] == 'local'
+    assert info['has_next'] is False
