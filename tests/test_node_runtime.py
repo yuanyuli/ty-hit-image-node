@@ -67,6 +67,37 @@ def test_node_exposes_local_source_label():
     assert '从本地获取' in options
 
 
+def test_node_sort_options_match_supported_image_api():
+    options = nodes.TyHitImageNode.INPUT_TYPES()['optional']['sort'][0]
+    assert options == ['Most Reactions', 'Most Comments', 'Most Collected', 'Newest', 'Oldest']
+
+
+def test_image_tag_selects_server_filter_and_separate_cache(monkeypatch, tmp_path):
+    from cache import Cache
+
+    requested = []
+
+    class FakeClient:
+        def search(self, params):
+            requested.append(params.tag_id)
+            return type('Page', (), {
+                'items': [{'id': params.tag_id, 'url': 'https://image.civitai.com/sample.png',
+                           'meta': {'prompt': 'test'}}],
+                'next_cursor': None,
+            })()
+
+    monkeypatch.setattr(nodes, 'CivitaiClient', FakeClient)
+    monkeypatch.setattr(nodes, 'Cache', lambda *args, **kwargs: Cache(tmp_path))
+    anime = nodes.TyHitImageNode().load('civitai.com', '', 'Day', 1, image_tag='Anime')
+    beach = nodes.TyHitImageNode().load('civitai.com', '', 'Day', 1, image_tag='Beach')
+    again = nodes.TyHitImageNode().load('civitai.com', '', 'Day', 1, image_tag='Anime')
+
+    assert requested == [4, 5998]
+    assert [x['id'] for x in anime['ui']['civitai']] == [4]
+    assert [x['id'] for x in beach['ui']['civitai']] == [5998]
+    assert [x['id'] for x in again['ui']['civitai']] == [4]
+
+
 def test_gallery_item_exposes_models_and_loras():
     item = nodes._gallery_item({"id": 9, "url": "https://image.civitai.com/9.png", "meta": {
         "resources": [{"type": "model", "name": "Base XL"}, {"type": "lora", "name": "Detail"}],

@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlparse
 from civitai_client import CivitaiClient, QueryParams, ApiError
 
 
@@ -48,6 +49,51 @@ def test_search_falls_back_for_unknown_sort(monkeypatch):
             return {"items": [], "metadata": {}}
     Fake().search(QueryParams(site="civitai.com", sort="not-a-civitai-sort"))
     assert "sort=Most+Reactions" in captured["url"]
+
+
+def test_search_rejects_legacy_downloaded_sort_before_request():
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            self.last_url = url
+            return {"items": [{"id": 1}], "metadata": {"nextCursor": None}}
+
+    client = Fake()
+    result = client.search(QueryParams(sort="Most Downloaded"))
+    assert [item["id"] for item in result.items] == [1]
+    assert parse_qs(urlparse(client.last_url).query)["sort"] == ["Most Reactions"]
+
+
+def test_search_sends_collected_sort():
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            self.last_url = url
+            return {"items": [], "metadata": {}}
+
+    client = Fake()
+    client.search(QueryParams(sort="Most Collected"))
+    assert parse_qs(urlparse(client.last_url).query)["sort"] == ["Most Collected"]
+
+
+def test_search_sends_image_tag_id_as_server_filter():
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            self.last_url = url
+            return {"items": [], "metadata": {}}
+
+    client = Fake()
+    client.search(QueryParams(tag_id=5998))
+    assert parse_qs(urlparse(client.last_url).query)["tags"] == ["5998"]
+
+
+def test_search_without_image_tag_omits_tag_filter():
+    class Fake(CivitaiClient):
+        def _request_json(self, url):
+            self.last_url = url
+            return {"items": [], "metadata": {}}
+
+    client = Fake()
+    client.search(QueryParams())
+    assert "tags" not in parse_qs(urlparse(client.last_url).query)
 
 def test_status_codes_are_readable():
     class Fake(CivitaiClient):

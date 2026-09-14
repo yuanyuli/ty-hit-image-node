@@ -67,6 +67,7 @@ class QueryParams:
     # Keep this as a query option instead of sorting locally: cursor pagination
     # only remains stable when the server owns the ordering.
     sort: str = "Most Reactions"
+    tag_id: int | None = None
 
 class ApiError(RuntimeError):
     def __init__(self, status, message): self.status, self.message = status, message; super().__init__(message)
@@ -100,13 +101,14 @@ class CivitaiClient:
         base=self.BASE.get(params.site)
         if not base: raise ValueError(f"不支持的站点: {params.site}")
         allowed_sorts = {
-            "Most Reactions", "Most Comments", "Most Downloaded",
+            "Most Reactions", "Most Comments", "Most Collected",
             "Newest", "Oldest",
         }
         sort = params.sort if params.sort in allowed_sorts else "Most Reactions"
         q={"limit": min(max(params.count,1),20), "period":params.period, "sort":sort, "nsfw":str(not params.sfw).lower()}
         if params.media_type in ("image", "video"): q["type"] = params.media_type
         if params.prompt_query: q["query"]=params.prompt_query[:256]
+        if params.tag_id: q["tags"] = params.tag_id
         if params.cursor: q["cursor"] = params.cursor
         data=self._request_json(base+"?"+urlencode(q)); items=data.get("items", [])[:q["limit"]]
         meta=data.get("metadata") or {}; return SearchPage(items, meta.get("nextCursor"))

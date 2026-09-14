@@ -9,7 +9,9 @@ from image_loader import read_metadata
 from cache import Cache
 from local_source import list_local_images
 
-SORT_OPTIONS = ['Most Reactions', 'Most Comments', 'Most Downloaded', 'Newest', 'Oldest']
+SORT_OPTIONS = ['Most Reactions', 'Most Comments', 'Most Collected', 'Newest', 'Oldest']
+IMAGE_TAG_IDS = {'全部': None, 'Anime': 4, 'Beach': 5998, 'Fantasy': 5207,
+                 'Portrait': 1441, 'Landscape': 8363}
 MAX_COUNT = 9
 NODE_VERSION = 'v7'
 _META_CACHE = {}
@@ -115,6 +117,7 @@ class TyHitImageNode:
             "count": ('INT', {'default':9,'min':1,'max':MAX_COUNT}),
             "sfw": ('BOOLEAN', {'default':True})}, "optional": {
                 "sort": (SORT_OPTIONS, {'default':'Most Reactions'}),
+                "image_tag": (list(IMAGE_TAG_IDS), {'default':'全部'}),
                 "source": (["static", "civitai"], {'default':'civitai', 'hidden': True}),
                 "page": ('INT', {'default':0,'min':0,'max':1000, 'hidden': True}),
                 "refresh": ('BOOLEAN', {'default':False, 'hidden': True}),
@@ -124,13 +127,14 @@ class TyHitImageNode:
     RETURN_NAMES = ()
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','count','sfw','sort','refresh','source','page','only_with_prompt'))
+        return tuple(kwargs.get(k) for k in ('site','prompt_query','period','count','sfw','sort','image_tag','refresh','source','page','only_with_prompt'))
     FUNCTION = "load"
     CATEGORY = "Civitai/Inspiration"
 
-    def load(self, site, prompt_query, period, count, sfw=True, sort='Most Reactions', refresh=False, source='civitai', page=0, only_with_prompt=False):
+    def load(self, site, prompt_query, period, count, sfw=True, sort='Most Reactions', refresh=False, source='civitai', page=0, only_with_prompt=False, image_tag='全部'):
         count = min(max(int(count), 1), MAX_COUNT)
         sort = sort if sort in SORT_OPTIONS else 'Most Reactions'
+        image_tag = image_tag if image_tag in IMAGE_TAG_IDS else '全部'
         cache = Cache(Path(__file__).resolve().parent/'.cache')
         page_index = int(page or 0)
         stale_state = {'used': False}
@@ -152,7 +156,7 @@ class TyHitImageNode:
             }}
 
         def page_key(index):
-            payload = ['v7', site, (prompt_query or '')[:256], period, count, bool(sfw), sort, source, index]
+            payload = ['v7', site, (prompt_query or '')[:256], period, count, bool(sfw), sort, source, image_tag, index]
             return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 
         def get_page(index, force=False):
@@ -168,7 +172,7 @@ class TyHitImageNode:
                     if current and not cursor:
                         return [], None
                     try:
-                        result = CivitaiClient().search(QueryParams(site, prompt_query or '', period, 'image', count, sfw, cursor, sort))
+                        result = CivitaiClient().search(QueryParams(site, prompt_query or '', period, 'image', count, sfw, cursor, sort, IMAGE_TAG_IDS[image_tag]))
                     except ApiError:
                         # refresh is best effort: retain a previously cached page
                         # when Civitai is temporarily unavailable.

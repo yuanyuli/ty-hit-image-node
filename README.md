@@ -97,7 +97,8 @@ cmd /c mklink /J "$ComfyRoot\custom_nodes\ComfyUI-TyHitImageNode" "$NodeRoot"
 | 周期 | Day、Week、Month、AllTime |
 | 数量 | 每页请求和显示的上限，范围 1–9 |
 | SFW | 将查询限制为站点允许的安全内容；不会绕过站点限制 |
-| 排序 | Most Reactions、Most Comments、Most Downloaded、Newest、Oldest |
+| 排序 | Most Reactions、Most Comments、Most Collected、Newest、Oldest。旧工作流中的 Most Downloaded 会回退到 Most Reactions |
+| 图片标签 | 默认“全部”，可选 Anime、Beach、Fantasy、Portrait、Landscape；仅对 Civitai 站点生效，使用 Civitai 图片 API 的标签 ID 进行服务端筛选 |
 | 仅显示有提示词 | 只展示已检测到正向提示词的结果；如果当前页不足，节点会继续读取后续页 |
 
 选择“从本地获取”后，节点只读取 `<ComfyUI>/output/ty-node/` 目录中的历史图片，不访问 Civitai。结果按文件修改时间倒序分页；关键词可匹配文件名或图片内嵌 prompt。本地图片已经在输出目录中，因此不会显示重复下载按钮。
