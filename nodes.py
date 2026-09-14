@@ -118,7 +118,9 @@ class TyHitImageNode:
             "sfw": ('BOOLEAN', {'default':True})}, "optional": {
                 "sort": (SORT_OPTIONS, {'default':'Most Reactions'}),
                 "image_tag": (list(IMAGE_TAG_IDS), {'default':'全部'}),
-                "source": (["static", "civitai"], {'default':'civitai', 'hidden': True}),
+                # Internal compatibility field. Keep it open-ended so workflows
+                # that serialized a legacy combo index (for example 4) can load.
+                "source": ('STRING', {'default':'civitai', 'hidden': True}),
                 "page": ('INT', {'default':0,'min':0,'max':1000, 'hidden': True}),
                 "refresh": ('BOOLEAN', {'default':False, 'hidden': True}),
                 "only_with_prompt": ('BOOLEAN', {'default':False})}}
@@ -134,6 +136,7 @@ class TyHitImageNode:
     def load(self, site, prompt_query, period, count, sfw=True, sort='Most Reactions', refresh=False, source='civitai', page=0, only_with_prompt=False, image_tag='全部'):
         count = min(max(int(count), 1), MAX_COUNT)
         sort = sort if sort in SORT_OPTIONS else 'Most Reactions'
+        source = source if source in ('static', 'civitai') else 'civitai'
         image_tag = image_tag if image_tag in IMAGE_TAG_IDS else '全部'
         cache = Cache(Path(__file__).resolve().parent/'.cache')
         page_index = int(page or 0)

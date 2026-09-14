@@ -32,7 +32,7 @@
 | sfw | BOOLEAN | 默认 true；不能绕过站点限制 |
 | refresh | BOOLEAN | 默认 false；只刷新当前查询缓存 |
 
-可选控件为 `source`（`static`/`civitai`，默认 `static`，仅开发用途）、`page`（从 0 开始的页码）和 `only_with_prompt`（仅显示已检测到提示词的图片）。选择“从本地获取”时只读取 `output/ty-node` 直接子目录中的图片，按修改时间倒序分页，并通过 `/view` URL 展示。当前版本没有任何 ComfyUI 输出端口；提示词、metadata 和来源信息通过画廊交互查看。
+可选控件为隐藏字符串 `source`（`static`/`civitai`，默认 `civitai`；仅开发用途）、`page`（从 0 开始的页码）和 `only_with_prompt`（仅显示已检测到提示词的图片）。`source` 对未知旧值（包括历史工作流保存的数字索引）回退为 `civitai`，以保持工作流升级兼容。选择“从本地获取”时只读取 `output/ty-node` 直接子目录中的图片，按修改时间倒序分页，并通过 `/view` URL 展示。当前版本没有任何 ComfyUI 输出端口；提示词、metadata 和来源信息通过画廊交互查看。
 
 内部 metadata 解析仍可区分 A/B/C 类，但当前版本只用于提示词状态和后续扩展，不在节点输出端口暴露，也绝不执行任何 workflow。不伪造缺失字段。
 

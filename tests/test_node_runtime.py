@@ -67,6 +67,25 @@ def test_node_exposes_local_source_label():
     assert '从本地获取' in options
 
 
+def test_source_accepts_legacy_workflow_values_and_falls_back_to_civitai(monkeypatch):
+    source_type, source_options = nodes.TyHitImageNode.INPUT_TYPES()['optional']['source']
+    assert source_type == 'STRING'
+    assert source_options['default'] == 'civitai'
+    assert source_options['hidden'] is True
+
+    class FakePage:
+        items = [{'id': 42, 'url': 'https://image.civitai.com/42.png', 'meta': {'prompt': 'legacy'}}]
+        next_cursor = None
+
+    class FakeClient:
+        def search(self, params):
+            return FakePage()
+
+    monkeypatch.setattr(nodes, 'CivitaiClient', FakeClient)
+    out = nodes.TyHitImageNode().load('civitai.com', '', 'Day', 1, source=4)
+    assert [item['id'] for item in out['ui']['civitai']] == [42]
+
+
 def test_node_sort_options_match_supported_image_api():
     options = nodes.TyHitImageNode.INPUT_TYPES()['optional']['sort'][0]
     assert options == ['Most Reactions', 'Most Comments', 'Most Collected', 'Newest', 'Oldest']
