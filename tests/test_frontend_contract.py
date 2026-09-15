@@ -65,3 +65,10 @@ def test_gallery_snapshot_is_isolated_per_workflow_and_node():
     assert "location.hash" in source
     assert "localStorage.setItem(galleryStorageKey()" in source
     assert "localStorage.getItem(galleryStorageKey()" in source
+
+
+def test_gallery_actions_use_partial_execution_for_this_node_only():
+    source = FRONTEND.read_text(encoding="utf-8")
+    assert "app.graphToPrompt()" in source
+    assert "partialExecutionTargets: [String(node.id)]" in source
+    assert "app.api.queuePrompt(0, prompt" in source
